@@ -36,3 +36,9 @@ AI may read only the data the acting member is allowed to read. Before creating,
 ## Cross-cutting rules
 
 Use canonical timestamps with a household timezone policy and preserve original timezone/offset for calendar semantics. Notifications and search are event-driven and permission-filtered. Attachments use authorization-checked references rather than public URLs. Audit events record actor, action, target, correlation, outcome, and redacted metadata. Offline behavior, recovery, exports, and retention are foundation decisions rather than per-app afterthoughts.
+
+Security and privacy are product constraints: treat all client and integration
+input as untrusted, derive household context server-side, minimize private-data
+disclosure, keep secrets out of product records/logs/browser state, and make
+access to exports and attachments independently authorization-checked. The
+implementation baseline and unresolved environment decisions are in ADR 0011.
