@@ -26,4 +26,4 @@ This repository contains product foundations and a planning backlog only. No app
 
 The following repositories are reference sources only and must not be modified, deleted, archived, or deployed as part of this work: `family-planner`, `lifestreak`, `chore-champs`, `meal-planner`, and `budget-app`.
 
-See the [product scope and feature matrix](docs/product-scope.md), [UX plan](docs/ux-plan.md), [product architecture](docs/product-architecture.md), [data model](docs/data-model.md), and [migration plan](docs/migration-plan.md).
+See the [product scope and feature matrix](docs/product-scope.md), [UX plan](docs/ux-plan.md), [foundation completion plan](docs/foundation-completion-plan.md), [product architecture](docs/product-architecture.md), [data model](docs/data-model.md), and [migration plan](docs/migration-plan.md).
