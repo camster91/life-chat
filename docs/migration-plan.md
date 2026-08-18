@@ -28,3 +28,7 @@ Inventory source behavior, schemas, integrations, auth/roles, exports, privacy o
 4. Build rollback/recovery procedures and test them with representative data.
 5. Run controlled imports, verify agreed source/target parity, and collect sign-off.
 6. Retire an old deployment only after explicit approval; this repository does not authorize retirement.
+
+## Inventory records
+
+- [Family Planner read-only inventory](migration-inventories/family-planner.md)
