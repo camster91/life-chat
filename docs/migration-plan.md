@@ -34,3 +34,4 @@ Inventory source behavior, schemas, integrations, auth/roles, exports, privacy o
 - [Family Planner read-only inventory](migration-inventories/family-planner.md)
 - [LifeStreak read-only inventory](migration-inventories/lifestreak.md)
 - [ChoreChamps read-only inventory](migration-inventories/chore-champs.md)
+- [Meal Planner read-only inventory](migration-inventories/meal-planner.md)
