@@ -27,3 +27,4 @@ All entities have opaque IDs, `created_at`, `updated_at`, household scope where 
 - Deletion, export, retention, and migration mapping require auditability and explicit policy.
 - Search indexes and notifications reference canonical records; they never become the source of truth.
 - Audit events and domain events are separate append-only envelopes: audit is evidence, while domain events are idempotent canonical-record references for internal consumers.
+- Export packages carry a versioned manifest with opaque IDs, record/attachment references, and checksums; they omit secrets, sessions, provider keys, and raw operational logs.
