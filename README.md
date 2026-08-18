@@ -20,7 +20,16 @@ Today, Chat, Apps, Calendar, Family, Search, Notifications, and Settings form th
 
 ## Status
 
-This repository contains product foundations and a planning backlog only. No application implementation, data migration, production deployment, or retirement of legacy applications is complete.
+This repository contains the product plan, shared-contract foundations, read-only
+domain/presentation models, migration safeguards, and a dependency-ordered
+backlog. It is **not yet a runnable household product**: authentication,
+database persistence, server commands, canonical record storage, complete route
+UI, and delivery workers are still pending.
+
+No data migration, production deployment, legacy-repository modification, or
+legacy retirement is complete or authorized. See the
+[integrated execution plan](docs/integrated-execution-plan.md) for the current
+implementation sequence and external validation gates.
 
 ## Reference sources
 
