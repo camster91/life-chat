@@ -2,13 +2,17 @@
 
 ## Status
 
-Decision required before a production identity adapter, session flow, invitation
-acceptance, or database-backed active-context route is implemented. This file
-does not select or configure a provider.
+Accepted on 2026-08-18: use **Better Auth**, self-hosted with Life Chat, for
+identity and sessions. It will use the Life Chat PostgreSQL instance on the
+VPS; no managed identity service is a core dependency.
+
+This selects the provider boundary only. No VPS, database, user account,
+session secret, email sender, domain, credential, or production configuration
+has been created. No Better Auth migration has been generated or applied.
 
 ## Non-negotiable adapter contract
 
-The provider proves only a stable opaque authenticated-subject reference. Life
+Better Auth proves only a stable opaque authenticated-subject reference. Life
 Chat owns household members, invitations, active-context selection, role and
 capability evaluation, audit records, recovery policy, and authorization. A
 provider subject ID, email, name, or claim is never a household authorization
@@ -20,14 +24,16 @@ production credentials. Provider secrets, session IDs, access tokens, and raw
 claims stay outside application logs, issues, browser state, export packages,
 and household records.
 
-## Candidates to evaluate
+## Selected integration shape
 
-| Option | Strength | Decision risk to resolve |
-| --- | --- | --- |
-| Auth.js adapter | Keeps provider choice behind an application-owned adapter and can support multiple sign-in methods. | Select the credential/identity source, secure session strategy, recovery/MFA posture, email sender, and operational ownership. |
-| Clerk | Fast managed session and account UI foundation. | Confirm custody, pricing, data residency, child/guest handling, export/deletion path, lock-in/exit plan, and server-only authorization boundary. |
-| Supabase Auth | Can align authentication with a PostgreSQL platform if that platform is selected. | Confirm whether database hosting is also intended, RLS/adaptor boundary, custody, pricing, data residency, exit plan, and environment separation. |
-| Other | May meet a specific household/product constraint. | Must demonstrate every required contract and a local/test strategy before adoption. |
+| Concern | Decision |
+| --- | --- |
+| Provider | Better Auth, mounted through a Next.js server route. |
+| Storage | Database-backed Better Auth records in the self-hosted PostgreSQL service; Life Chat domain records remain application-owned. |
+| Application boundary | A small server-only adapter exposes only the opaque authenticated subject and verified session state to Life Chat authorization. |
+| Authorization | Every request still derives active household context and capabilities from Life Chat member records; Better Auth data is never a source of household authority. |
+| Portability | The adapter, not feature code, owns Better Auth imports. Replacing it must not change household/member, invitation, role, audit, or command contracts. |
+| Local/test mode | Fabricated subjects and disposable databases only; no production credentials or network-dependent test setup. |
 
 ## Required acceptance tests for any choice
 
@@ -50,7 +56,8 @@ and household records.
 
 ## Related decisions still needed
 
-The selected provider does not decide PostgreSQL hosting, secret manager,
-transaction/outbox implementation, email delivery, MFA/recovery UX, legal
-guardian policy, production environment, or deployment. Those remain separate
-approved environment/product decisions under ADRs 0002, 0011, and 0018.
+The selected provider and self-hosted topology do not decide the initial
+sign-in method (password, passkey, or magic link), MFA/recovery UX, email
+delivery, secret manager, transaction/outbox implementation, backup/restore
+operations, legal guardian policy, production domain, or deployment procedure.
+Those remain separate decisions under ADRs 0002, 0011, and 0018.

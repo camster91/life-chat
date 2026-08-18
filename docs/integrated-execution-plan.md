@@ -17,7 +17,13 @@ This plan authorizes no deployment, production migration, legacy change/retireme
 
 ### 1. Runtime spine
 
-Implement auth/session and database adapters; derive active household context server-side; persist household/member/configuration; add transactional canonical/audit/outbox writes; enforce authorization, feature eligibility, idempotency, and version conflicts; implement routes and accessible primitives from the selected #42 direction.
+Implement the selected self-hosted Better Auth/session and PostgreSQL adapters;
+derive active household context server-side; persist household/member/configuration;
+add transactional canonical/audit/outbox writes; enforce authorization, feature
+eligibility, idempotency, and version conflicts; implement routes and accessible
+primitives from the selected #42 direction. Do not configure a production
+instance or run migrations until the remaining environment and release gates
+are explicitly approved.
 
 Proof: cross-household integration tests, persistence/transaction tests, keyboard/screen-reader review, and hosted CI after #14 resolves.
 

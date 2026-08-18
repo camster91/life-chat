@@ -5,7 +5,7 @@
 - Node.js 22 or newer
 - pnpm 10.32.1
 
-No database, AI provider, authentication provider, or production credential is required for the foundation shell.
+No database, AI provider, Better Auth configuration, or production credential is required for the foundation shell. Better Auth and PostgreSQL are selected for the self-hosted runtime but are not configured by this repository foundation.
 
 ## Commands
 

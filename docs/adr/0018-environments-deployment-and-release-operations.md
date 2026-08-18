@@ -2,8 +2,10 @@
 
 ## Status
 
-Accepted as an environment-neutral operating contract. Hosting, secret manager,
-database provider, CI availability, and deployment tooling are unselected.
+Accepted as an environment operating contract. Production is intended to be
+self-hosted on the user's VPS, with PostgreSQL and Better Auth kept local to
+that deployment. Secret management, CI availability, deployment tooling, and
+the actual VPS/database configuration remain unselected and uncreated.
 
 ## Decision
 
@@ -73,6 +75,7 @@ representative staging rehearsal then becomes required evidence.
 
 ## Non-goals
 
-- No host, account, secret, database, CI setting, deployment workflow, staging
-  environment, artifact, migration, backup, rollback, or production action is
-  created by this ADR.
+- No host account, secret, database instance, CI setting, deployment workflow,
+  staging environment, artifact, migration, backup, rollback, or production
+  action is created by this ADR. The VPS topology decision is not deployment
+  authorization.

@@ -37,11 +37,15 @@ Authentication proves only the subject. For every server request, the applicatio
 
 ## Provider/session boundary
 
-The provider is selected later behind an adapter. It must yield a stable opaque subject reference and use secure cookie/session behavior. The application owns member records, household membership, invitation logic, active-context derivation, and authorization. Session IDs and invite secrets are never logged, included in URLs, or stored as plain text.
+Better Auth is the self-hosted provider behind an application-owned adapter. It
+must yield a stable opaque subject reference and use secure cookie/session
+behavior. The application owns member records, household membership,
+invitation logic, active-context derivation, and authorization. Session IDs
+and invite secrets are never logged, included in URLs, or stored as plain text.
 
 ## Non-goals
 
-- Selecting an authentication vendor, password/MFA/recovery UX, or social login list.
+- Selecting password/passkey/magic-link, MFA/recovery UX, or a social-login list.
 - Defining roles/capabilities, which is #4.
 - Defining the physical schema, ORM model, or migration, which is #43.
 - Solving legal guardianship, custody, identity proofing, or child consent; those remain #44.
@@ -50,4 +54,4 @@ The provider is selected later behind an adapter. It must yield a stable opaque 
 
 - Pure context-resolution tests prove that only an active, subject-linked, non-expired member can produce a household context.
 - Future integration tests must prove cross-household ID tampering, revoked/expired guest access, invitation replay, and last-adult protection are denied.
-- This decision is based on server-side, deny-by-default authorization and secure session-boundary guidance; no authentication provider was configured.
+- This decision is based on server-side, deny-by-default authorization and secure session-boundary guidance. Better Auth is selected but not configured or deployed.

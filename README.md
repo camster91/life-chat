@@ -9,6 +9,7 @@ It replaces the fragmented experience of standalone applications over time, whil
 - One trustworthy source of household and personal life information.
 - A conversational AI home and command interface, with a clear conventional UI for every important action.
 - Private and local by default where practical, with strong household/member isolation.
+- A self-hosted VPS runtime with local PostgreSQL and Better Auth; external identity or database services are not a core dependency.
 - Different, deliberate permissions for adults, children, and guests.
 - AI proposals are reviewable before important data changes occur.
 - Provider-independent AI support, with optional bring-your-own-AI and future paid credits.

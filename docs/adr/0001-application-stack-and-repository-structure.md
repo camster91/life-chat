@@ -18,7 +18,7 @@ Use a pnpm workspace with one deployable application at `apps/web` and reserved 
 | Styling | Component-scoped CSS plus CSS custom properties for design tokens. No UI kit is adopted until UX direction is selected. |
 | Canonical data | PostgreSQL is the source of truth for household-scoped records, audit events, and migration state. |
 | Persistence | Prisma ORM 7 for schema, migrations, generated types, and typed queries. SQL constraints and appropriate row-level security are defence in depth, not authorization replacements. |
-| Authentication | Provider adapter boundary selected in #3; no provider is created by this ADR. |
+| Authentication | Better Auth is self-hosted with the application and backed by PostgreSQL. Life Chat retains a server-only provider adapter boundary; the initial sign-in and recovery methods remain a separate decision. |
 | AI | Provider-neutral orchestration selected in #10–#11; mini-apps cannot call a vendor SDK directly. |
 | Testing | Vitest for domain tests and Playwright for isolated browser journeys. Fixtures are fabricated/disposable (#48). |
 | Tooling | pnpm, ESLint, TypeScript, and documented local checks. CI/release configuration remains #14/#50. |
