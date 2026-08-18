@@ -6,7 +6,16 @@
 }
 
 * { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--surface); color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
-main { width: min(100% - 2rem, 68rem); margin: 0 auto; padding: 4rem 0; }
+main { width: min(100% - 2rem, 68rem); margin: 0 auto; padding: clamp(2rem, 8vw, 4rem) 0; }
 h1 { max-width: 18ch; font-size: clamp(2rem, 7vw, 4rem); line-height: 1.05; }
 p { max-width: 65ch; color: var(--muted); font-size: 1.125rem; line-height: 1.6; }
+
+:focus-visible { outline: 3px solid #0b6e4f; outline-offset: 3px; }
+.skip-link { position: fixed; z-index: 1; top: 0.5rem; left: 0.5rem; padding: 0.75rem 1rem; background: #1d2722; color: #fff; transform: translateY(-150%); }
+.skip-link:focus { transform: translateY(0); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+}
