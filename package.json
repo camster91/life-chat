@@ -1,0 +1,14 @@
+{
+  "name": "life-chat",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@10.32.1",
+  "engines": { "node": ">=22.0.0", "pnpm": ">=10.0.0" },
+  "scripts": {
+    "build": "pnpm --filter @life-chat/web build",
+    "dev": "pnpm --filter @life-chat/web dev",
+    "lint": "pnpm --filter @life-chat/web lint",
+    "test": "pnpm --filter @life-chat/web test",
+    "typecheck": "pnpm --filter @life-chat/web typecheck"
+  }
+}

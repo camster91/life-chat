@@ -1,0 +1,12 @@
+:root {
+  color-scheme: light;
+  --surface: #fbfaf7;
+  --ink: #1d2722;
+  --muted: #5a655f;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--surface); color: var(--ink); font-family: Arial, Helvetica, sans-serif; }
+main { width: min(100% - 2rem, 68rem); margin: 0 auto; padding: 4rem 0; }
+h1 { max-width: 18ch; font-size: clamp(2rem, 7vw, 4rem); line-height: 1.05; }
+p { max-width: 65ch; color: var(--muted); font-size: 1.125rem; line-height: 1.6; }
