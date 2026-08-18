@@ -17,6 +17,7 @@ export const permissions = [
   "ai.confirm",
   "ai.configure",
   "rewards.approve",
+  "messages.participate",
 ] as const;
 
 export type Permission = (typeof permissions)[number];
@@ -42,8 +43,8 @@ export type AuthorizationRequest = {
 export type AuthorizationDecision = { allowed: true; source: "baseline" | "grant" } | { allowed: false; reason: "household-mismatch" | "missing-permission" };
 
 const baselinePermissions: Record<BaselineRole, readonly Permission[]> = {
-  adult: ["household.read", "household.manage", "member.read", "member.invite", "member.manage", "mini-app.configure", "audit.read", "data.export", "privacy.manage", "profile.read-self", "profile.update-self", "notification.manage-self", "ai.propose", "ai.confirm", "ai.configure", "rewards.approve"],
-  child: ["household.read", "profile.read-self", "profile.update-self", "notification.manage-self", "ai.propose"],
+  adult: ["household.read", "household.manage", "member.read", "member.invite", "member.manage", "mini-app.configure", "audit.read", "data.export", "privacy.manage", "profile.read-self", "profile.update-self", "notification.manage-self", "ai.propose", "ai.confirm", "ai.configure", "rewards.approve", "messages.participate"],
+  child: ["household.read", "profile.read-self", "profile.update-self", "notification.manage-self", "ai.propose", "messages.participate"],
   guest: [],
 };
 
