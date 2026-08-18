@@ -5,7 +5,8 @@ All entities have opaque IDs, `created_at`, `updated_at`, household scope where 
 | Entity | Core fields and relationships |
 | --- | --- |
 | household | Name, timezone policy, locale, status, privacy/data-retention settings; owns household-scoped records. |
-| member | Household membership, identity reference, display profile, lifecycle status, timezone/preferences; may belong to multiple households through separate memberships. |
+| authenticated subject | Provider-agnostic opaque account identity; has no household role itself and may link to multiple household-local members. |
+| member | Household-local profile linked optionally to one authenticated subject; baseline persona, display profile, lifecycle, expiry, timezone/preferences. A person in several households has separate member records. |
 | role | Named baseline persona (`adult`, `child`, `guest`) plus capability set and policy version. |
 | mini-app configuration | Household, app identifier/version, enabled state, settings, rollout state, and per-member visibility overrides. |
 | task/action | App-owned or shared actionable item; owner/assignees, status, due/schedule, visibility, source, and completion/audit links. |
@@ -20,6 +21,7 @@ All entities have opaque IDs, `created_at`, `updated_at`, household scope where 
 ## Invariants
 
 - Household-scoped queries require server-derived household context.
+- An active context is derived from an authenticated subject's active, non-expired member record; a client-provided household ID is never trusted.
 - Role/capability checks occur for reads and writes; child and guest defaults are deny-by-default.
 - Money uses integer minor units plus ISO currency. Times retain instant and relevant timezone semantics.
 - Deletion, export, retention, and migration mapping require auditability and explicit policy.
