@@ -15,7 +15,7 @@ All entities have opaque IDs, `created_at`, `updated_at`, household scope where 
 | message/thread | Thread participants, visibility, message body/version, delivery/read state, attachments, and moderation/deletion policy. |
 | notification | Recipient, type, payload reference, delivery channels, scheduling, state, deduplication key, and action/deep link. |
 | attachment | Owner/scope, storage reference, content metadata, integrity status, access policy, retention policy, and virus/processing state. |
-| audit event | Actor, household, action, target/type, before/after summaries, outcome, correlation ID, timestamp, and redacted metadata. |
+| audit event | Append-only actor/household/action/target/outcome evidence with correlation/causation IDs, exact timestamp, and bounded redacted metadata; never a data-content replica. |
 | AI conversation/action | Conversation messages and model context references; each action links to its proposal, confirmation, executor, provider/model metadata, cost/credit metadata, result, and audit event. |
 
 ## Invariants
@@ -26,3 +26,4 @@ All entities have opaque IDs, `created_at`, `updated_at`, household scope where 
 - Money uses integer minor units plus ISO currency. Date-only, wall-clock, and exact-instant values remain distinct; times retain IANA timezone semantics.
 - Deletion, export, retention, and migration mapping require auditability and explicit policy.
 - Search indexes and notifications reference canonical records; they never become the source of truth.
+- Audit events and domain events are separate append-only envelopes: audit is evidence, while domain events are idempotent canonical-record references for internal consumers.
