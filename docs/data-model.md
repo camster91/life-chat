@@ -5,6 +5,7 @@ All entities have opaque IDs, `created_at`, `updated_at`, household scope where 
 | Entity | Core fields and relationships |
 | --- | --- |
 | household | Name, IANA timezone policy, locale, status, privacy/data-retention settings; owns household-scoped records. |
+| consent/authorization record | Versioned purpose, data categories, recipient, acting member/adult, policy version, captured/withdrawn timestamps, and safe audit reference; no unnecessary legal proof or content replica. |
 | authenticated subject | Provider-agnostic opaque account identity; has no household role itself and may link to multiple household-local members. |
 | member | Household-local profile linked optionally to one authenticated subject; baseline persona, display profile, lifecycle, expiry, timezone/preferences. A person in several households has separate member records. |
 | role | Named baseline persona (`adult`, `child`, `guest`) plus capability set and policy version. |
@@ -30,3 +31,4 @@ All entities have opaque IDs, `created_at`, `updated_at`, household scope where 
 - Audit events and domain events are separate append-only envelopes: audit is evidence, while domain events are idempotent canonical-record references for internal consumers.
 - Export packages carry a versioned manifest with opaque IDs, record/attachment references, and checksums; they omit secrets, sessions, provider keys, and raw operational logs.
 - A canonical record has one owning service. Cross-app work uses versioned service contracts, safe references/events, and re-authorized retrieval; mini-apps do not directly read or mutate one another's storage.
+- No feature stores personal data until it declares collection purpose, sensitivity, retention class, deletion method, export/backup treatment, and legal-hold behavior. Child/household data cannot be used for advertising or model training.
