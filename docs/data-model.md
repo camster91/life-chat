@@ -29,3 +29,4 @@ All entities have opaque IDs, `created_at`, `updated_at`, household scope where 
 - Notifications are server-selected and permission-filtered per recipient. The in-app notification centre is canonical; future external-channel payloads remain generic and are reauthorized at presentation/delivery.
 - Audit events and domain events are separate append-only envelopes: audit is evidence, while domain events are idempotent canonical-record references for internal consumers.
 - Export packages carry a versioned manifest with opaque IDs, record/attachment references, and checksums; they omit secrets, sessions, provider keys, and raw operational logs.
+- A canonical record has one owning service. Cross-app work uses versioned service contracts, safe references/events, and re-authorized retrieval; mini-apps do not directly read or mutate one another's storage.
