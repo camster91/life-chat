@@ -16,7 +16,7 @@ All entities have opaque IDs, `created_at`, `updated_at`, household scope where 
 | notification | Recipient-specific template and safe canonical-record references, source event, exact delivery instant, lifecycle state, deduplication key, in-app/deferred adapter status, and optional action/deep link; never a copy of private source content. |
 | attachment | Owner/scope, storage reference, content metadata, integrity status, access policy, retention policy, and virus/processing state. |
 | audit event | Append-only actor/household/action/target/outcome evidence with correlation/causation IDs, exact timestamp, and bounded redacted metadata; never a data-content replica. |
-| AI conversation/action | Conversation messages and model context references; each action links to its proposal, confirmation, executor, provider/model metadata, cost/credit metadata, result, and audit event. |
+| AI conversation/action | Conversation messages and model context references; each action links to its proposal, confirmation, executor, provider/model references, bounded usage/cost metadata, result, and audit event. Credentials, keys, raw prompts/completions, and provider logs are separate from this shared entity. |
 
 ## Invariants
 
