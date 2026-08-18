@@ -32,3 +32,4 @@ Inventory source behavior, schemas, integrations, auth/roles, exports, privacy o
 ## Inventory records
 
 - [Family Planner read-only inventory](migration-inventories/family-planner.md)
+- [LifeStreak read-only inventory](migration-inventories/lifestreak.md)
