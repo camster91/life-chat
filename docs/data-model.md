@@ -4,13 +4,13 @@ All entities have opaque IDs, `created_at`, `updated_at`, household scope where 
 
 | Entity | Core fields and relationships |
 | --- | --- |
-| household | Name, timezone policy, locale, status, privacy/data-retention settings; owns household-scoped records. |
+| household | Name, IANA timezone policy, locale, status, privacy/data-retention settings; owns household-scoped records. |
 | authenticated subject | Provider-agnostic opaque account identity; has no household role itself and may link to multiple household-local members. |
 | member | Household-local profile linked optionally to one authenticated subject; baseline persona, display profile, lifecycle, expiry, timezone/preferences. A person in several households has separate member records. |
 | role | Named baseline persona (`adult`, `child`, `guest`) plus capability set and policy version. |
 | mini-app configuration | Household, app identifier/version, enabled state, settings, rollout state, and per-member visibility overrides. |
 | task/action | App-owned or shared actionable item; owner/assignees, status, due/schedule, visibility, source, and completion/audit links. |
-| calendar item | Time range, timezone/original offset, participants, recurrence, visibility, reminders, source link, and conflict state. |
+| calendar item | All-day date range or local timed range plus IANA timezone and derived instant, participants, recurrence, visibility, reminders, source link, and conflict state. |
 | list/list item | A named permission-scoped collection and ordered items with status, assignee/owner, attributes, and source references. |
 | message/thread | Thread participants, visibility, message body/version, delivery/read state, attachments, and moderation/deletion policy. |
 | notification | Recipient, type, payload reference, delivery channels, scheduling, state, deduplication key, and action/deep link. |
@@ -23,6 +23,6 @@ All entities have opaque IDs, `created_at`, `updated_at`, household scope where 
 - Household-scoped queries require server-derived household context.
 - An active context is derived from an authenticated subject's active, non-expired member record; a client-provided household ID is never trusted.
 - Role/capability checks occur for reads and writes; child and guest defaults are deny-by-default.
-- Money uses integer minor units plus ISO currency. Times retain instant and relevant timezone semantics.
+- Money uses integer minor units plus ISO currency. Date-only, wall-clock, and exact-instant values remain distinct; times retain IANA timezone semantics.
 - Deletion, export, retention, and migration mapping require auditability and explicit policy.
 - Search indexes and notifications reference canonical records; they never become the source of truth.
