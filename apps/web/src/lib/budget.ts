@@ -1,0 +1,16 @@
+import type { ActiveHouseholdContext } from "./identity-context";
+import { activationEligibility, type HouseholdMiniAppConfiguration } from "./mini-app-registry";
+import { authorize, type BaselineRole, type CapabilityGrant } from "./permission-engine";
+export type BudgetCategorySummary = Readonly<{ id: string; householdId: string; label: string; currency: string; allocatedMinorUnits: number; spentMinorUnits: number; authorized: true }>;
+export type BudgetOverview = Readonly<{ currency: string; allocatedMinorUnits: number; spentMinorUnits: number; remainingMinorUnits: number; categories: readonly BudgetCategorySummary[] }>;
+export function createBudgetOverview(input: { context: ActiveHouseholdContext; role: BaselineRole; grants: readonly CapabilityGrant[]; now: Date; configuration: HouseholdMiniAppConfiguration; categories: readonly BudgetCategorySummary[] }): BudgetOverview {
+  if (!activationEligibility("budget", input.configuration).eligible) throw new Error("Budget mini-app must be enabled and eligible");
+  if (!authorize({ context: input.context, role: input.role, grants: input.grants, now: input.now, request: { householdId: input.context.householdId, permission: "budget.view" } }).allowed) throw new Error("Active member may not view budget data");
+  let currency: string | null = null; let allocatedMinorUnits = 0; let spentMinorUnits = 0;
+  const categories = input.categories.map((category) => { if (category.householdId !== input.context.householdId || !category.authorized) throw new Error("Budget category must match active household and be authorized"); if (category.id.trim().length === 0 || category.label.trim().length === 0 || category.label.length > 200 || !/^[A-Z]{3}$/.test(category.currency)) throw new Error("Budget category display data and currency must be valid"); for (const value of [category.allocatedMinorUnits, category.spentMinorUnits]) if (!Number.isSafeInteger(value) || value < 0) throw new Error("Budget amounts must be non-negative integer minor units"); if (currency !== null && currency !== category.currency) throw new Error("Budget overview must use one currency"); currency = category.currency; allocatedMinorUnits += category.allocatedMinorUnits; spentMinorUnits += category.spentMinorUnits; return Object.freeze({ ...category }); });
+  if (currency === null) throw new Error("Budget overview requires at least one category");
+  return Object.freeze({ currency, allocatedMinorUnits, spentMinorUnits, remainingMinorUnits: allocatedMinorUnits - spentMinorUnits, categories: Object.freeze(categories) });
+}
+export function proposeBudgetAllocationChange(input: { overview: BudgetOverview; categoryId: string; allocatedMinorUnits: number }): Readonly<{ categoryId: string; allocatedMinorUnits: number; currency: string; requiresConfirmation: true }> {
+  if (!input.overview.categories.some((category) => category.id === input.categoryId)) throw new Error("Budget category must exist in the overview"); if (!Number.isSafeInteger(input.allocatedMinorUnits) || input.allocatedMinorUnits < 0) throw new Error("Budget allocation must be a non-negative integer minor unit value"); return Object.freeze({ categoryId: input.categoryId, allocatedMinorUnits: input.allocatedMinorUnits, currency: input.overview.currency, requiresConfirmation: true });
+}
