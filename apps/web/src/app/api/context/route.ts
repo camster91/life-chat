@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { activeMemberCookieName, type AccountContextResponse } from "@/lib/account-context";
 import { readAuthEnvironment } from "@/lib/auth-environment";
 import { ActiveContextError, resolveActiveHouseholdContext } from "@/lib/identity-context";
+import { loadHouseholdMiniAppConfiguration } from "@/lib/identity-repository";
+import { activationEligibility, miniAppRegistry } from "@/lib/mini-app-registry";
+import { getDatabase } from "@/lib/database";
 import { loadSessionMemberships } from "@/lib/server-request-context";
 
 export const dynamic = "force-dynamic";
@@ -21,8 +24,10 @@ function setActiveMemberCookie(response: NextResponse, memberId: string) {
   });
 }
 
-function activeResponse(member: { id: string; displayName: string; household: { name: string } }): AccountContextResponse {
-  return { status: "active", memberId: member.id, householdName: member.household.name, displayName: member.displayName };
+async function activeResponse(member: { id: string; householdId: string; displayName: string; role: "adult" | "child" | "guest"; household: { name: string } }): Promise<AccountContextResponse> {
+  const configuration = await loadHouseholdMiniAppConfiguration(getDatabase(), member.householdId);
+  const enabledApps = miniAppRegistry.filter((app) => activationEligibility(app.id, configuration).eligible).map((app) => app.id);
+  return { status: "active", memberId: member.id, householdName: member.household.name, displayName: member.displayName, role: member.role, enabledApps };
 }
 
 export async function GET(request: NextRequest) {
@@ -39,14 +44,14 @@ export async function GET(request: NextRequest) {
         requestedMemberId,
         now: loaded.now,
       });
-      return json(activeResponse(loaded.members.find((member) => member.id === context.memberId)!));
+      return json(await activeResponse(loaded.members.find((member) => member.id === context.memberId)!));
     } catch (error) {
       if (!(error instanceof ActiveContextError)) throw error;
     }
   }
 
   if (loaded.members.length === 1) {
-    const response = json(activeResponse(loaded.members[0]));
+    const response = json(await activeResponse(loaded.members[0]));
     setActiveMemberCookie(response, loaded.members[0].id);
     return response;
   }
@@ -71,7 +76,7 @@ export async function POST(request: NextRequest) {
       now: loaded.now,
     });
     const member = loaded.members.find((candidate) => candidate.id === context.memberId)!;
-    const response = json(activeResponse(member));
+    const response = json(await activeResponse(member));
     setActiveMemberCookie(response, member.id);
     return response;
   } catch (error) {

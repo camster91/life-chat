@@ -1,19 +1,6 @@
-import Link from "next/link";
-import { AccountStatus } from "./account-status";
+import { AuthenticatedShell } from "../authenticated-shell";
+import { TodayWorkspace } from "./today-workspace";
 
 export default function TodayPage() {
-  return <>
-    <a className="skip-link" href="#main-content">Skip to main content</a>
-    <main id="main-content" className="account-page" tabIndex={-1}>
-      <section className="account-panel" aria-labelledby="today-title">
-        <Link className="brand" href="/">Life Chat</Link>
-        <div>
-          <p className="eyebrow">Today</p>
-          <h1 id="today-title">Your household, clearly scoped</h1>
-          <p>Life Chat will show data only after both account and household context have been verified.</p>
-        </div>
-        <div aria-live="polite" aria-atomic="true"><AccountStatus /></div>
-      </section>
-    </main>
-  </>;
+  return <AuthenticatedShell current="today"><TodayWorkspace /></AuthenticatedShell>;
 }
