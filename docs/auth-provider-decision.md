@@ -98,12 +98,11 @@ have durable transaction/audit/outbox persistence, including a local PostgreSQL
 integration test for hashed-token storage and single-use acceptance. A
 lifecycle command also prevents suspension or removal of the final active
 adult, writes audit/outbox evidence, and has local PostgreSQL integration
-coverage. The secure invite-only account-entry flow has local
-provider/database, HTTP, keyboard, and automated accessibility evidence. A
-local-only first-owner operator command, delivery/recovery, guest-expiry
-management, subject/member unlinking, human screen-reader review, rate
-limiting, and production-readiness validation still remain before #53 can
-close.
+coverage. The secure invite-only account-entry flow and CLI-only first-owner
+bootstrap have local provider/database, HTTP, keyboard, and automated
+accessibility evidence. Delivery/recovery, guest-expiry management,
+subject/member unlinking, human screen-reader review, rate limiting, and
+production-readiness validation still remain before #53 can close.
 
 ## Account-entry design gate
 

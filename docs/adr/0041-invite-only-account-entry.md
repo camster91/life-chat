@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for the initial local runtime. Public Better Auth signup remains disabled. No mail delivery, password recovery, first-owner operator command, production configuration, or deployment is included.
+Accepted for the initial local runtime. Public Better Auth signup remains disabled. No mail delivery, password recovery, production configuration, or deployment is included.
 
 ## Decision
 
@@ -23,4 +23,4 @@ If invitation acceptance fails after account creation, the server uses the fresh
 
 ## Remaining verification and operations
 
-Database integration must prove new-account acceptance, replay/expiry, existing-subject collision, and compensating cleanup. Browser keyboard and screen-reader validation remains required. Before external delivery, select and rehearse the private mail/recovery service, rotation procedure, redacted logging, rate limits, and operator recovery runbook. The first-owner bootstrap still requires a loopback/local-operator command with one-time and replay evidence.
+Database integration proves new-account acceptance, replay/expiry, existing-subject collision, and compensating cleanup. The first-owner bootstrap is a CLI-only command with an exact confirmation phrase, environment/secret-manager inputs rather than command-line arguments, a zero-household precheck plus transactional recheck, no established session, and replay denial. Browser keyboard and human screen-reader validation remains required. Before external delivery, select and rehearse the private mail/recovery service, rotation procedure, redacted logging, rate limits, and operator recovery runbook.

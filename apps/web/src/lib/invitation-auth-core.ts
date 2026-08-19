@@ -24,7 +24,9 @@ export function createInvitationAccountProvisioner(input: {
   database: PrismaClient;
   environment: AuthEnvironment;
   requestHeaders: Headers;
+  establishSession?: boolean;
 }): InvitationAccountProvisioner {
+  const establishSession = input.establishSession ?? true;
   const auth = betterAuth({
     baseURL: input.environment.betterAuthUrl,
     secret: input.environment.betterAuthSecret,
@@ -36,7 +38,7 @@ export function createInvitationAccountProvisioner(input: {
       disableSignUp: false,
       minPasswordLength: 12,
       maxPasswordLength: 128,
-      autoSignIn: true,
+      autoSignIn: establishSession,
       revokeSessionsOnPasswordReset: true,
     },
     user: { deleteUser: { enabled: true } },
@@ -50,13 +52,23 @@ export function createInvitationAccountProvisioner(input: {
         returnHeaders: true,
       });
       const setCookies = setCookieValues(result.headers);
-      if (setCookies.length === 0) throw new Error("The account provider did not establish a session.");
+      if (establishSession && setCookies.length === 0) throw new Error("The account provider did not establish a session.");
       return {
         subjectId: result.response.user.id,
         setCookies,
         async rollback() {
+          let cleanupCookies = setCookies;
+          if (cleanupCookies.length === 0) {
+            const signIn = await auth.api.signInEmail({
+              body: { email: account.email, password: account.password, rememberMe: false },
+              headers: input.requestHeaders,
+              returnHeaders: true,
+            });
+            cleanupCookies = setCookieValues(signIn.headers);
+          }
+          if (cleanupCookies.length === 0) throw new Error("The account provider did not establish a cleanup session.");
           const cleanupHeaders = new Headers(input.requestHeaders);
-          cleanupHeaders.set("cookie", cookieRequestHeader(setCookies));
+          cleanupHeaders.set("cookie", cookieRequestHeader(cleanupCookies));
           await auth.api.deleteUser({ body: { password: account.password }, headers: cleanupHeaders });
         },
       };

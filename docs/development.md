@@ -33,6 +33,16 @@ them to a VPS, production, legacy, shared, or otherwise unapproved database.
 
 `http://localhost:3000/api/health` intentionally reports only local application readiness.
 
+## First-owner setup
+
+The first owner is created only by the local CLI; there is no HTTP bootstrap route. Use an isolated approved database with all migrations applied. Provide `LIFE_CHAT_BOOTSTRAP_EMAIL`, `LIFE_CHAT_BOOTSTRAP_PASSWORD`, `LIFE_CHAT_BOOTSTRAP_HOUSEHOLD_NAME`, and `LIFE_CHAT_BOOTSTRAP_DISPLAY_NAME` through the local environment or secret manager, never as command-line arguments. Set `LIFE_CHAT_BOOTSTRAP_CONFIRM=CREATE_FIRST_LIFE_CHAT_OWNER`, then run:
+
+```powershell
+pnpm --filter @life-chat/web bootstrap:first-owner
+```
+
+The command creates the credential through Better Auth, creates exactly one household and active adult with audit/outbox evidence, establishes no browser session, and becomes unavailable once any household exists. It prints no email, password, subject, session, or provider detail. Rehearse it only on a disposable database before any approved environment setup.
+
 ## Boundaries
 
 - Do not use real household data in local fixtures or tests.
