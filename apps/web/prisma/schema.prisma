@@ -81,10 +81,27 @@ model Household {
   updatedAt    DateTime      @updatedAt
   members      Member[]
   invitations  Invitation[]
+  miniAppConfigurations HouseholdMiniAppConfiguration[]
   auditEvents  AuditEvent[]
   outboxEvents OutboxEvent[]
 
   @@map("households")
+}
+
+model HouseholdMiniAppConfiguration {
+  id                    String    @id @default(cuid())
+  householdId           String
+  appId                 String
+  enabled               Boolean   @default(false)
+  settingsSchemaVersion Int       @default(1)
+  settings              Json      @default("{}")
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  household             Household @relation(fields: [householdId], references: [id], onDelete: Restrict)
+
+  @@unique([householdId, appId])
+  @@index([householdId, enabled])
+  @@map("household_mini_app_configurations")
 }
 
 model Member {

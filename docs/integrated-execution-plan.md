@@ -2,7 +2,7 @@
 
 ## Current state
 
-Shared contracts, migration safeguards, inventories, and pure presentation/read models exist for every P1 shell surface and mini-app. The initial identity, invitation-acceptance, audit, and outbox persistence slice has local integration evidence. Life Chat is still not a runnable product: an authenticated entry flow, real application routes, P1 canonical stores and commands, delivery workers, and production services are absent. Therefore issues #15–#32 remain open.
+Shared contracts, migration safeguards, inventories, and pure presentation/read models exist for every P1 shell surface and mini-app. The initial identity, invitation, audit/outbox, and household mini-app configuration persistence slices have local integration evidence. Life Chat is still not a runnable product: an authenticated entry flow, real application routes, P1 canonical stores and commands, delivery workers, and production services are absent. Therefore issues #15–#32 remain open.
 
 ## External gates
 

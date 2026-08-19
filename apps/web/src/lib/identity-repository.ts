@@ -3,9 +3,11 @@ import { createAuditEvent, createDomainEvent, newCorrelationId } from "./audit-e
 import { planFirstOwnerBootstrap } from "./bootstrap-contract";
 import { resolveActiveHouseholdContext, type ActiveHouseholdContext } from "./identity-context";
 import { acceptInvitation, createInvitation, invitationTokenHash } from "./invitation-contract";
+import { activationEligibility, defaultMiniAppConfiguration, miniAppRegistry, type HouseholdMiniAppConfiguration, type MiniAppId } from "./mini-app-registry";
 import { authorize, type BaselineRole, type CapabilityGrant } from "./permission-engine";
 
 export class MemberLifecycleError extends Error {}
+export class MiniAppConfigurationError extends Error {}
 
 /**
  * Loads an active household only from membership records linked to the
@@ -172,6 +174,69 @@ export async function issueHouseholdInvitation(database: PrismaClient, input: {
       occurredAt: new Date(domainEvent.occurredAt),
     } });
     return created;
+  }, { isolationLevel: "Serializable" });
+}
+
+export async function loadHouseholdMiniAppConfiguration(database: PrismaClient, householdId: string): Promise<HouseholdMiniAppConfiguration> {
+  const stored = await database.householdMiniAppConfiguration.findMany({ where: { householdId } });
+  const configuration = defaultMiniAppConfiguration();
+  for (const item of stored) {
+    const definition = miniAppRegistry.find((candidate) => candidate.id === item.appId);
+    if (definition !== undefined && item.settingsSchemaVersion === definition.settingsSchemaVersion) {
+      configuration[definition.id] = { enabled: item.enabled, settingsSchemaVersion: definition.settingsSchemaVersion };
+    }
+  }
+  return configuration;
+}
+
+/** Enables or disables one known mini-app without implicitly changing dependencies. */
+export async function setHouseholdMiniAppEnabled(database: PrismaClient, input: {
+  actor: { context: ActiveHouseholdContext; grants: readonly CapabilityGrant[] };
+  appId: MiniAppId;
+  enabled: boolean;
+  now: Date;
+}) {
+  return database.$transaction(async (transaction) => {
+    const actor = await transaction.member.findFirst({ where: {
+      id: input.actor.context.memberId, householdId: input.actor.context.householdId,
+      authenticatedSubjectId: input.actor.context.authenticatedSubjectId, lifecycle: "active",
+      OR: [{ expiresAt: null }, { expiresAt: { gt: input.now } }],
+    } });
+    if (actor === null) throw new MiniAppConfigurationError("The active member is no longer eligible to configure apps.");
+    const authorization = authorize({ context: input.actor.context, role: actor.role, grants: input.actor.grants, request: { householdId: actor.householdId, permission: "mini-app.configure" }, now: input.now });
+    if (!authorization.allowed) throw new MiniAppConfigurationError("The active member cannot configure apps.");
+    const definition = miniAppRegistry.find((candidate) => candidate.id === input.appId);
+    if (definition === undefined) throw new MiniAppConfigurationError("The requested mini-app is unknown.");
+
+    const configuration = await loadHouseholdMiniAppConfiguration(transaction as PrismaClient, actor.householdId);
+    configuration[input.appId] = { enabled: input.enabled, settingsSchemaVersion: definition.settingsSchemaVersion };
+    if (input.enabled) {
+      const eligibility = activationEligibility(input.appId, configuration);
+      if (!eligibility.eligible) throw new MiniAppConfigurationError(`The mini-app cannot be enabled: ${eligibility.reason}.`);
+    } else {
+      const enabledDependents = miniAppRegistry.filter((candidate) => candidate.dependsOn.includes(input.appId) && configuration[candidate.id].enabled);
+      if (enabledDependents.length > 0) throw new MiniAppConfigurationError("Disable dependent mini-apps before disabling this mini-app.");
+    }
+
+    const correlationId = newCorrelationId();
+    const auditEvent = createAuditEvent({
+      householdId: actor.householdId, actor: { type: "member", id: actor.id }, action: input.enabled ? "mini-app.enable" : "mini-app.disable",
+      target: { type: "mini-app", id: input.appId }, outcome: "succeeded", correlationId, causationId: null,
+      occurredAt: input.now.toISOString(), metadata: { settingsSchemaVersion: definition.settingsSchemaVersion },
+    });
+    const domainEvent = createDomainEvent({
+      householdId: actor.householdId, aggregate: { type: "mini-app-configuration", id: `${actor.householdId}:${input.appId}` },
+      type: input.enabled ? "mini-app.enabled.v1" : "mini-app.disabled.v1", correlationId, causationId: auditEvent.id,
+      occurredAt: input.now.toISOString(), references: { appId: input.appId },
+    });
+    const saved = await transaction.householdMiniAppConfiguration.upsert({
+      where: { householdId_appId: { householdId: actor.householdId, appId: input.appId } },
+      create: { householdId: actor.householdId, appId: input.appId, enabled: input.enabled, settingsSchemaVersion: definition.settingsSchemaVersion, settings: {} },
+      update: { enabled: input.enabled, settingsSchemaVersion: definition.settingsSchemaVersion },
+    });
+    await transaction.auditEvent.create({ data: { id: auditEvent.id, householdId: auditEvent.householdId, actorType: auditEvent.actor.type, actorId: auditEvent.actor.id, action: auditEvent.action, targetType: auditEvent.target.type, targetId: auditEvent.target.id, outcome: auditEvent.outcome, correlationId: auditEvent.correlationId, causationId: auditEvent.causationId, metadata: auditEvent.metadata, occurredAt: new Date(auditEvent.occurredAt) } });
+    await transaction.outboxEvent.create({ data: { id: domainEvent.id, householdId: domainEvent.householdId, aggregateType: domainEvent.aggregate.type, aggregateId: domainEvent.aggregate.id, eventType: domainEvent.type, schemaVersion: domainEvent.schemaVersion, correlationId: domainEvent.correlationId, causationId: domainEvent.causationId, references: domainEvent.references, occurredAt: new Date(domainEvent.occurredAt) } });
+    return saved;
   }, { isolationLevel: "Serializable" });
 }
 

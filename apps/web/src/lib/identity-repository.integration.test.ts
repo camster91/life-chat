@@ -60,4 +60,27 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       expect(await database.member.findUniqueOrThrow({ where: { id: firstAdult.id } })).toMatchObject({ lifecycle: "active" });
     } finally { await database.$disconnect(); }
   });
+
+  it("persists authorized app enablement and enforces dependencies", async () => {
+    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { PrismaClient } = await import("../../generated/prisma/client");
+    const { MiniAppConfigurationError, setHouseholdMiniAppEnabled } = await import("./identity-repository");
+    const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
+    try {
+      const suffix = randomUUID();
+      const now = new Date("2026-08-18T12:00:00.000Z");
+      const household = await database.household.create({ data: { id: `apps-household-${suffix}`, name: "Apps" } });
+      const subject = await database.user.create({ data: { id: `apps-subject-${suffix}`, name: "Adult", email: `apps-${suffix}@example.test` } });
+      const member = await database.member.create({ data: { id: `apps-member-${suffix}`, householdId: household.id, authenticatedSubjectId: subject.id, displayName: "Adult", role: "adult", lifecycle: "active" } });
+      const actor = { context: { authenticatedSubjectId: subject.id, memberId: member.id, householdId: household.id }, grants: [] };
+
+      await expect(setHouseholdMiniAppEnabled(database, { actor, appId: "rewards", enabled: true, now })).rejects.toThrow(MiniAppConfigurationError);
+      await setHouseholdMiniAppEnabled(database, { actor, appId: "chores", enabled: true, now });
+      await setHouseholdMiniAppEnabled(database, { actor, appId: "rewards", enabled: true, now });
+      await expect(setHouseholdMiniAppEnabled(database, { actor, appId: "chores", enabled: false, now })).rejects.toThrow(MiniAppConfigurationError);
+      expect(await database.householdMiniAppConfiguration.findMany({ where: { householdId: household.id, enabled: true }, orderBy: { appId: "asc" } })).toMatchObject([{ appId: "chores", enabled: true }, { appId: "rewards", enabled: true }]);
+      expect(await database.auditEvent.count({ where: { householdId: household.id, action: "mini-app.enable" } })).toBe(2);
+      expect(await database.outboxEvent.count({ where: { householdId: household.id, eventType: "mini-app.enabled.v1" } })).toBe(2);
+    } finally { await database.$disconnect(); }
+  });
 });
