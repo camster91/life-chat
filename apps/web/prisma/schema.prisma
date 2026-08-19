@@ -75,12 +75,14 @@ model Verification {
 }
 
 model Household {
-  id          String       @id @default(cuid())
-  name        String
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  members     Member[]
-  invitations Invitation[]
+  id           String        @id @default(cuid())
+  name         String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  members      Member[]
+  invitations  Invitation[]
+  auditEvents  AuditEvent[]
+  outboxEvents OutboxEvent[]
 
   @@map("households")
 }
@@ -140,4 +142,45 @@ model Invitation {
   @@index([issuerMemberId])
   @@index([acceptedSubjectId])
   @@map("invitations")
+}
+
+model AuditEvent {
+  id            String    @id
+  householdId   String
+  actorType     String
+  actorId       String
+  action        String
+  targetType    String
+  targetId      String
+  outcome       String
+  correlationId String
+  causationId   String?
+  metadata      Json
+  occurredAt    DateTime
+  createdAt     DateTime  @default(now())
+  household     Household @relation(fields: [householdId], references: [id], onDelete: Restrict)
+
+  @@index([householdId, occurredAt])
+  @@index([correlationId])
+  @@map("audit_events")
+}
+
+model OutboxEvent {
+  id            String    @id
+  householdId   String
+  aggregateType String
+  aggregateId   String
+  eventType     String
+  schemaVersion Int
+  correlationId String
+  causationId   String?
+  references    Json
+  occurredAt    DateTime
+  publishedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  household     Household @relation(fields: [householdId], references: [id], onDelete: Restrict)
+
+  @@index([householdId, createdAt])
+  @@index([publishedAt])
+  @@map("outbox_events")
 }
