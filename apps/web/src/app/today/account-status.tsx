@@ -65,6 +65,7 @@ export function AccountStatus() {
     <h2>{session.user.name}</h2>
     <p>Working in <strong>{context.householdName}</strong> as {context.displayName}.</p>
     <TodayItems key={context.memberId} memberId={context.memberId} />
+    <Link className="secondary-button inline-button" href="/lists">Open Shared Lists</Link>
     {signOut}
   </div>;
 }

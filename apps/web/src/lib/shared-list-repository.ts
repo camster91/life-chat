@@ -3,7 +3,7 @@ import { createAuditEvent, createDomainEvent, newCorrelationId } from "./audit-e
 import type { ActiveHouseholdContext } from "./identity-context";
 import { loadHouseholdMiniAppConfiguration } from "./identity-repository";
 import { activationEligibility } from "./mini-app-registry";
-import { authorize, type CapabilityGrant } from "./permission-engine";
+import { authorize, type CapabilityGrant, type Permission } from "./permission-engine";
 
 export class SharedListCommandError extends Error {}
 
@@ -22,18 +22,45 @@ function boundedCommandId(value: string): string {
   return value;
 }
 
-async function authorizeListManagement(database: PrismaClient, actor: Actor, now: Date) {
+async function authorizeListAccess(database: PrismaClient, actor: Actor, permission: Extract<Permission, "lists.read" | "lists.manage">, now: Date) {
   const member = await database.member.findFirst({ where: {
     id: actor.context.memberId, householdId: actor.context.householdId,
     authenticatedSubjectId: actor.context.authenticatedSubjectId, lifecycle: "active",
     OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
   } });
-  if (member === null) throw new SharedListCommandError("The active member is no longer eligible to manage lists.");
-  const decision = authorize({ context: actor.context, role: member.role, grants: actor.grants, request: { householdId: member.householdId, permission: "lists.manage", appId: "shared-lists" }, now });
-  if (!decision.allowed) throw new SharedListCommandError("The active member cannot manage shared lists.");
+  if (member === null) throw new SharedListCommandError("The active member is no longer eligible to use lists.");
+  const decision = authorize({ context: actor.context, role: member.role, grants: actor.grants, request: { householdId: member.householdId, permission, appId: "shared-lists" }, now });
+  if (!decision.allowed) throw new SharedListCommandError("The active member cannot use shared lists.");
   const configuration = await loadHouseholdMiniAppConfiguration(database, member.householdId);
   if (!activationEligibility("shared-lists", configuration).eligible) throw new SharedListCommandError("Shared Lists is not enabled for this household.");
   return member;
+}
+
+async function authorizeListManagement(database: PrismaClient, actor: Actor, now: Date) {
+  return authorizeListAccess(database, actor, "lists.manage", now);
+}
+
+export async function loadSharedLists(database: PrismaClient, input: { actor: Actor; now: Date }) {
+  return database.$transaction(async (transaction) => {
+    const member = await authorizeListAccess(transaction as PrismaClient, input.actor, "lists.read", input.now);
+    return transaction.sharedList.findMany({
+      where: { householdId: member.householdId, archivedAt: null },
+      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
+      include: { _count: { select: { items: { where: { state: "open" } } } } },
+    });
+  }, { isolationLevel: "Serializable" });
+}
+
+export async function loadSharedList(database: PrismaClient, input: { actor: Actor; listId: string; now: Date }) {
+  return database.$transaction(async (transaction) => {
+    const member = await authorizeListAccess(transaction as PrismaClient, input.actor, "lists.read", input.now);
+    const list = await transaction.sharedList.findFirst({
+      where: { id: input.listId, householdId: member.householdId, archivedAt: null },
+      include: { items: { orderBy: [{ position: "asc" }, { id: "asc" }] } },
+    });
+    if (list === null) throw new SharedListCommandError("The requested open list is not available.");
+    return list;
+  }, { isolationLevel: "Serializable" });
 }
 
 export async function createSharedList(database: PrismaClient, input: { actor: Actor; title: string; commandId: string; now: Date }) {

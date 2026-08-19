@@ -21,6 +21,12 @@ describe("authorize", () => {
     expect(authorize({ context, role: "guest", grants: [], now, request: { householdId: context.householdId, permission: "chores.complete-assigned" } })).toEqual({ allowed: false, reason: "missing-permission" });
   });
 
+  it("lets children read shared lists without granting list management", () => {
+    expect(authorize({ context, role: "child", grants: [], now, request: { householdId: context.householdId, permission: "lists.read", appId: "shared-lists" } })).toEqual({ allowed: true, source: "baseline" });
+    expect(authorize({ context, role: "child", grants: [], now, request: { householdId: context.householdId, permission: "lists.manage", appId: "shared-lists" } })).toEqual({ allowed: false, reason: "missing-permission" });
+    expect(authorize({ context, role: "guest", grants: [], now, request: { householdId: context.householdId, permission: "lists.read", appId: "shared-lists" } })).toEqual({ allowed: false, reason: "missing-permission" });
+  });
+
   it("allows only a matching, unexpired scoped grant", () => {
     const grant = { grantId: "grant-a", memberId: "member-a", householdId: "household-a", permission: "profile.read-self" as const, appId: "habits", resourceId: "habit-a", expiresAt: new Date("2026-08-18T12:01:00.000Z") };
     expect(authorize({ context, role: "guest", grants: [grant], now, request: { householdId: "household-a", permission: "profile.read-self", appId: "habits", resourceId: "habit-a" } })).toEqual({ allowed: true, source: "grant" });

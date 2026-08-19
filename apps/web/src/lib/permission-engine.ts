@@ -19,6 +19,7 @@ export const permissions = [
   "rewards.approve",
   "messages.participate",
   "budget.view",
+  "lists.read",
   "lists.manage",
   "chores.complete-assigned",
 ] as const;
@@ -46,8 +47,8 @@ export type AuthorizationRequest = {
 export type AuthorizationDecision = { allowed: true; source: "baseline" | "grant" } | { allowed: false; reason: "household-mismatch" | "missing-permission" };
 
 const baselinePermissions: Record<BaselineRole, readonly Permission[]> = {
-  adult: ["household.read", "household.manage", "member.read", "member.invite", "member.manage", "mini-app.configure", "audit.read", "data.export", "privacy.manage", "profile.read-self", "profile.update-self", "notification.manage-self", "ai.propose", "ai.confirm", "ai.configure", "rewards.approve", "messages.participate", "budget.view", "lists.manage", "chores.complete-assigned"],
-  child: ["household.read", "profile.read-self", "profile.update-self", "notification.manage-self", "ai.propose", "messages.participate", "chores.complete-assigned"],
+  adult: ["household.read", "household.manage", "member.read", "member.invite", "member.manage", "mini-app.configure", "audit.read", "data.export", "privacy.manage", "profile.read-self", "profile.update-self", "notification.manage-self", "ai.propose", "ai.confirm", "ai.configure", "rewards.approve", "messages.participate", "budget.view", "lists.read", "lists.manage", "chores.complete-assigned"],
+  child: ["household.read", "profile.read-self", "profile.update-self", "notification.manage-self", "ai.propose", "messages.participate", "lists.read", "chores.complete-assigned"],
   guest: [],
 };
 

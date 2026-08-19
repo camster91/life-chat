@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for the ordered read model and an initial persisted create-list/add-item command slice. It does not yet reorder, edit, archive, assign, complete, merge, sync offline, or provide UI.
+Accepted for the ordered read model, persisted create-list/add-item commands, household-scoped reads, and the first normal UI. It does not yet reorder, edit, archive, assign, complete, merge, or sync offline.
 
 ## Decision
 
@@ -10,6 +10,8 @@ Shared Lists requires an eligible mini-app and accepts only authorized household
 
 The initial create-list/add-item commands derive active context server-side, reauthorize `lists.manage` and Shared Lists enablement before both first execution and idempotent replay, scope list access to the active household, use serializable transactions and replay-safe command IDs, and persist audit/outbox events. Item replay must also match the original list. Groceries is a dependent view and may not bypass these controls.
 
+Adults and children receive `lists.read`; only adults receive baseline `lists.manage`. Guests remain deny-by-default. Read repositories reload the active member and mini-app configuration inside a serializable transaction, return only open lists in the active household, and use a not-found boundary for list-detail isolation. The normal mobile-first UI supports viewing lists and ordered items plus adult-only creation forms. It deliberately renders read-only guidance for children rather than hiding the feature or relying on client-side controls for authority.
+
 ## Non-goals and verification
 
-No edit/reorder/archive/delete command, assignment mutation, completion execution, offline queue, conflict resolution, export, UI, or notification exists here. Local PostgreSQL integration tests cover enablement gating, replay-safe creation, inactive-member replay denial, cross-list/household boundaries, and audit/outbox writes. Version-conflict, accessibility, recovery, and normal UI evidence remain before #29 can close.
+No edit/reorder/archive/delete command, assignment mutation, completion execution, offline queue, conflict resolution, export, or notification exists here. Local PostgreSQL integration tests cover enablement gating, replay-safe creation, adult/child/guest permission boundaries, inactive-member denial, cross-list/household isolation, ordered reads, and audit/outbox writes. Version-conflict, browser and assistive-technology evidence, recovery, export, and the remaining mutation UI all remain before #29 can close.

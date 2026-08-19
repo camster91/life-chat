@@ -136,7 +136,7 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
     const { PrismaPg } = await import("@prisma/adapter-pg");
     const { PrismaClient } = await import("../../generated/prisma/client");
     const { setHouseholdMiniAppEnabled } = await import("./identity-repository");
-    const { addSharedListItem, createSharedList, SharedListCommandError } = await import("./shared-list-repository");
+    const { addSharedListItem, createSharedList, loadSharedList, loadSharedLists, SharedListCommandError } = await import("./shared-list-repository");
     const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
     try {
       const suffix = randomUUID();
@@ -145,24 +145,37 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       const subject = await database.user.create({ data: { id: `lists-subject-${suffix}`, name: "Adult", email: `lists-${suffix}@example.test` } });
       const member = await database.member.create({ data: { id: `lists-member-${suffix}`, householdId: household.id, authenticatedSubjectId: subject.id, displayName: "Adult", role: "adult", lifecycle: "active" } });
       const actor = { context: { authenticatedSubjectId: subject.id, memberId: member.id, householdId: household.id }, grants: [] };
+      const childSubject = await database.user.create({ data: { id: `lists-child-subject-${suffix}`, name: "Child", email: `lists-child-${suffix}@example.test` } });
+      const child = await database.member.create({ data: { id: `lists-child-member-${suffix}`, householdId: household.id, authenticatedSubjectId: childSubject.id, displayName: "Child", role: "child", lifecycle: "active" } });
+      const childActor = { context: { authenticatedSubjectId: childSubject.id, memberId: child.id, householdId: household.id }, grants: [] };
+      const guestSubject = await database.user.create({ data: { id: `lists-guest-subject-${suffix}`, name: "Guest", email: `lists-guest-${suffix}@example.test` } });
+      const guest = await database.member.create({ data: { id: `lists-guest-member-${suffix}`, householdId: household.id, authenticatedSubjectId: guestSubject.id, displayName: "Guest", role: "guest", lifecycle: "active" } });
+      const guestActor = { context: { authenticatedSubjectId: guestSubject.id, memberId: guest.id, householdId: household.id }, grants: [] };
       await expect(createSharedList(database, { actor, title: "Errands", commandId: `list-${suffix}`, now })).rejects.toThrow(SharedListCommandError);
       await setHouseholdMiniAppEnabled(database, { actor, appId: "shared-lists", enabled: true, now });
       const list = await createSharedList(database, { actor, title: "Errands", commandId: `list-${suffix}`, now });
       expect((await createSharedList(database, { actor, title: "Ignored replay", commandId: `list-${suffix}`, now })).id).toBe(list.id);
       const item = await addSharedListItem(database, { actor, listId: list.id, label: "Buy fruit", commandId: `item-${suffix}`, now });
       expect((await addSharedListItem(database, { actor, listId: list.id, label: "Ignored replay", commandId: `item-${suffix}`, now })).id).toBe(item.id);
+      expect(await loadSharedLists(database, { actor: childActor, now })).toMatchObject([{ id: list.id, _count: { items: 1 } }]);
+      expect(await loadSharedList(database, { actor: childActor, listId: list.id, now })).toMatchObject({ id: list.id, items: [{ id: item.id }] });
+      await expect(createSharedList(database, { actor: childActor, title: "Child write", commandId: `child-${suffix}`, now })).rejects.toThrow(SharedListCommandError);
+      await expect(loadSharedLists(database, { actor: guestActor, now })).rejects.toThrow(SharedListCommandError);
       const otherHousehold = await database.household.create({ data: { id: `lists-other-household-${suffix}`, name: "Other lists" } });
       const otherSubject = await database.user.create({ data: { id: `lists-other-subject-${suffix}`, name: "Other adult", email: `lists-other-${suffix}@example.test` } });
       const otherMember = await database.member.create({ data: { id: `lists-other-member-${suffix}`, householdId: otherHousehold.id, authenticatedSubjectId: otherSubject.id, displayName: "Other adult", role: "adult", lifecycle: "active" } });
       const otherActor = { context: { authenticatedSubjectId: otherSubject.id, memberId: otherMember.id, householdId: otherHousehold.id }, grants: [] };
       await setHouseholdMiniAppEnabled(database, { actor: otherActor, appId: "shared-lists", enabled: true, now });
       await expect(addSharedListItem(database, { actor: otherActor, listId: list.id, label: "Cross-household", commandId: `cross-${suffix}`, now })).rejects.toThrow(SharedListCommandError);
+      expect(await loadSharedLists(database, { actor: otherActor, now })).toEqual([]);
+      await expect(loadSharedList(database, { actor: otherActor, listId: list.id, now })).rejects.toThrow(SharedListCommandError);
       expect(await database.sharedListItem.count({ where: { listId: list.id } })).toBe(1);
       expect(await database.auditEvent.count({ where: { householdId: household.id, action: { startsWith: "shared-list" } } })).toBe(2);
       expect(await database.outboxEvent.count({ where: { householdId: household.id, eventType: { startsWith: "shared-list" } } })).toBe(2);
       await database.member.update({ where: { id: member.id }, data: { lifecycle: "suspended" } });
       await expect(createSharedList(database, { actor, title: "Suspended replay", commandId: `list-${suffix}`, now })).rejects.toThrow(SharedListCommandError);
       await expect(addSharedListItem(database, { actor, listId: list.id, label: "Suspended replay", commandId: `item-${suffix}`, now })).rejects.toThrow(SharedListCommandError);
+      await expect(loadSharedLists(database, { actor, now })).rejects.toThrow(SharedListCommandError);
     } finally { await database.$disconnect(); }
   });
 
