@@ -2,13 +2,13 @@
 
 ## Current state
 
-Shared contracts, migration safeguards, inventories, and pure presentation/read models exist for every P1 shell surface and mini-app. The initial identity, invitation, audit/outbox, and household mini-app configuration persistence slices have local integration evidence. Life Chat is still not a runnable product: an authenticated entry flow, real application routes, P1 canonical stores and commands, delivery workers, and production services are absent. Therefore issues #15–#32 remain open.
+Shared contracts, migration safeguards, inventories, and presentation/read models exist for every P1 shell surface and mini-app. The repository now has a runnable local Next.js shell, Better Auth session handling, server-derived household/member context, persisted identity and mini-app configuration, notification preferences, an authenticated Today read path, and an assignee-scoped Chore completion path. Shared Lists has persisted create-list/add-item commands but no normal UI. Safe invitation-based account creation, broader P1 stores and routes, delivery workers, browser/accessibility evidence, and production services remain absent. Therefore issues #15–#32 remain open.
 
 ## External gates
 
 | Gate | Evidence | Required action |
 | --- | --- | --- |
-| #14 CI | Run `32130438916` did not start because GitHub reported a recent payment/spending-limit condition. | Account owner resolves it and reruns CI. |
+| #14 CI | Run `32306526382` for `cc02748` did not start because GitHub reported a recent payment/spending-limit condition. | Account owner resolves it and reruns CI. |
 | #42 UX | Prototype and validation log exist; human/browser/assistive-technology validation remains pending. | Complete the UX-plan research and record findings/decision. |
 
 This plan authorizes no deployment, production migration, legacy change/retirement, automatic merge, provider credential, payment rail, or external delivery.

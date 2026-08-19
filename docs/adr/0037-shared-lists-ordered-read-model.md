@@ -12,4 +12,4 @@ The initial create-list/add-item commands derive active context server-side, rea
 
 ## Non-goals and verification
 
-No edit/reorder/archive/delete command, assignment mutation, completion execution, offline queue, conflict resolution, export, UI, or notification exists here. Local PostgreSQL integration tests cover enablement gating, replay-safe creation, revoked-member replay denial, cross-list/household boundaries, and audit/outbox writes. Version-conflict, accessibility, recovery, and normal UI evidence remain before #29 can close.
+No edit/reorder/archive/delete command, assignment mutation, completion execution, offline queue, conflict resolution, export, UI, or notification exists here. Local PostgreSQL integration tests cover enablement gating, replay-safe creation, inactive-member replay denial, cross-list/household boundaries, and audit/outbox writes. Version-conflict, accessibility, recovery, and normal UI evidence remain before #29 can close.
