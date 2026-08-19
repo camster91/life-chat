@@ -7,6 +7,7 @@ Validated locally on 2026-08-19 with fabricated data and a disposable PostgreSQL
 - The default suite passed 133 tests; the nine database integration tests run only with an explicit disposable database URL.
 - The provider/database suite passed 9/9. It covers hashed invitation storage, single-use acceptance, expiry, subject collision, duplicate email, credential hashing, session creation, member/audit/outbox persistence, and compensating deletion of a new user/account/session after an acceptance race.
 - A separate fresh-database first-owner integration test passed. It covers provider-backed setup without a session, a lost setup race with compensating user/account/session deletion, and replay denial before a second account is created.
+- The main database suite also proves current-state actor reauthorization, same-household subject unlinking, cross-household and final-adult denial, immediate context loss for the unlinked subject, and idempotent audited guest expiry.
 - Lint, TypeScript, the production Next.js build, production dependency audit, and migration deployment against a fresh database passed.
 
 ## Local HTTP evidence

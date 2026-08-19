@@ -251,20 +251,22 @@ export async function changeMemberLifecycle(database: PrismaClient, input: {
   lifecycle: "suspended" | "removed";
   now: Date;
 }) {
-  const authorization = authorize({
-    context: input.actor.context,
-    role: input.actor.role,
-    grants: input.actor.grants,
-    request: { householdId: input.actor.context.householdId, permission: "member.manage" },
-    now: input.now,
-  });
-  if (!authorization.allowed) throw new MemberLifecycleError("The active member cannot manage household members.");
-
   // Serializable isolation makes simultaneous final-adult changes fail rather
   // than permitting two stale counts to remove the household's last adult.
   return database.$transaction(async (transaction) => {
+    const actor = await transaction.member.findFirst({ where: {
+      id: input.actor.context.memberId, householdId: input.actor.context.householdId,
+      authenticatedSubjectId: input.actor.context.authenticatedSubjectId, lifecycle: "active",
+      OR: [{ expiresAt: null }, { expiresAt: { gt: input.now } }],
+    } });
+    if (actor === null) throw new MemberLifecycleError("The active member is no longer eligible to manage household members.");
+    const authorization = authorize({
+      context: input.actor.context, role: actor.role, grants: input.actor.grants,
+      request: { householdId: actor.householdId, permission: "member.manage" }, now: input.now,
+    });
+    if (!authorization.allowed) throw new MemberLifecycleError("The active member cannot manage household members.");
     const target = await transaction.member.findFirst({
-      where: { id: input.targetMemberId, householdId: input.actor.context.householdId },
+      where: { id: input.targetMemberId, householdId: actor.householdId },
     });
     if (target === null) throw new MemberLifecycleError("The requested member is not in the active household.");
     if (target.lifecycle !== "active") throw new MemberLifecycleError("Only active members can change lifecycle.");
@@ -278,13 +280,13 @@ export async function changeMemberLifecycle(database: PrismaClient, input: {
 
     const correlationId = newCorrelationId();
     const auditEvent = createAuditEvent({
-      householdId: target.householdId, actor: { type: "member", id: input.actor.context.memberId },
+      householdId: target.householdId, actor: { type: "member", id: actor.id },
       action: `identity.member.${input.lifecycle}`, target: { type: "member", id: target.id }, outcome: "succeeded",
       correlationId, causationId: null, occurredAt: input.now.toISOString(), metadata: { priorRole: target.role },
     });
     const domainEvent = createDomainEvent({
       householdId: target.householdId, aggregate: { type: "member", id: target.id }, type: `identity.member-${input.lifecycle}.v1`,
-      correlationId, causationId: auditEvent.id, occurredAt: input.now.toISOString(), references: { actorMemberId: input.actor.context.memberId },
+      correlationId, causationId: auditEvent.id, occurredAt: input.now.toISOString(), references: { actorMemberId: actor.id },
     });
     const member = await transaction.member.update({ where: { id: target.id }, data: { lifecycle: input.lifecycle } });
     await transaction.auditEvent.create({ data: {
@@ -300,5 +302,52 @@ export async function changeMemberLifecycle(database: PrismaClient, input: {
       occurredAt: new Date(domainEvent.occurredAt),
     } });
     return member;
+  }, { isolationLevel: "Serializable" });
+}
+
+export async function unlinkMemberSubject(database: PrismaClient, input: {
+  actor: { context: ActiveHouseholdContext; grants: readonly CapabilityGrant[] };
+  targetMemberId: string;
+  now: Date;
+}) {
+  if (input.targetMemberId.trim().length === 0 || input.targetMemberId.length > 200) throw new MemberLifecycleError("A bounded target member ID is required.");
+  return database.$transaction(async (transaction) => {
+    const actor = await transaction.member.findFirst({ where: {
+      id: input.actor.context.memberId, householdId: input.actor.context.householdId,
+      authenticatedSubjectId: input.actor.context.authenticatedSubjectId, lifecycle: "active",
+      OR: [{ expiresAt: null }, { expiresAt: { gt: input.now } }],
+    } });
+    if (actor === null) throw new MemberLifecycleError("The active member is no longer eligible to manage household members.");
+    const authorization = authorize({ context: input.actor.context, role: actor.role, grants: input.actor.grants, request: { householdId: actor.householdId, permission: "member.manage" }, now: input.now });
+    if (!authorization.allowed) throw new MemberLifecycleError("The active member cannot manage household members.");
+    const target = await transaction.member.findFirst({ where: { id: input.targetMemberId, householdId: actor.householdId, lifecycle: "active" } });
+    if (target === null || target.authenticatedSubjectId === null) throw new MemberLifecycleError("The requested linked active member is not available.");
+    if (target.role === "adult") {
+      const activeAdultCount = await transaction.member.count({ where: { householdId: target.householdId, role: "adult", lifecycle: "active" } });
+      if (activeAdultCount <= 1) throw new MemberLifecycleError("A household must retain at least one active adult.");
+    }
+    const correlationId = newCorrelationId();
+    const auditEvent = createAuditEvent({ householdId: target.householdId, actor: { type: "member", id: actor.id }, action: "identity.member.unlink-subject", target: { type: "member", id: target.id }, outcome: "succeeded", correlationId, causationId: null, occurredAt: input.now.toISOString(), metadata: { priorRole: target.role } });
+    const domainEvent = createDomainEvent({ householdId: target.householdId, aggregate: { type: "member", id: target.id }, type: "identity.member-subject-unlinked.v1", correlationId, causationId: auditEvent.id, occurredAt: input.now.toISOString(), references: { actorMemberId: actor.id } });
+    const member = await transaction.member.update({ where: { id: target.id }, data: { authenticatedSubjectId: null, lifecycle: "suspended" } });
+    await transaction.auditEvent.create({ data: { id: auditEvent.id, householdId: auditEvent.householdId, actorType: auditEvent.actor.type, actorId: auditEvent.actor.id, action: auditEvent.action, targetType: auditEvent.target.type, targetId: auditEvent.target.id, outcome: auditEvent.outcome, correlationId: auditEvent.correlationId, causationId: auditEvent.causationId, metadata: auditEvent.metadata, occurredAt: new Date(auditEvent.occurredAt) } });
+    await transaction.outboxEvent.create({ data: { id: domainEvent.id, householdId: domainEvent.householdId, aggregateType: domainEvent.aggregate.type, aggregateId: domainEvent.aggregate.id, eventType: domainEvent.type, schemaVersion: domainEvent.schemaVersion, correlationId: domainEvent.correlationId, causationId: domainEvent.causationId, references: domainEvent.references, occurredAt: new Date(domainEvent.occurredAt) } });
+    return member;
+  }, { isolationLevel: "Serializable" });
+}
+
+export async function expireGuestMembership(database: PrismaClient, input: { targetMemberId: string; now: Date }) {
+  if (input.targetMemberId.trim().length === 0 || input.targetMemberId.length > 200) throw new MemberLifecycleError("A bounded target member ID is required.");
+  return database.$transaction(async (transaction) => {
+    const target = await transaction.member.findFirst({ where: { id: input.targetMemberId, role: "guest", lifecycle: "active", expiresAt: { lte: input.now } } });
+    if (target === null) return null;
+    const correlationId = newCorrelationId();
+    const auditEvent = createAuditEvent({ householdId: target.householdId, actor: { type: "system", id: "guest-expiry-worker" }, action: "identity.member.expire-guest", target: { type: "member", id: target.id }, outcome: "succeeded", correlationId, causationId: null, occurredAt: input.now.toISOString(), metadata: {} });
+    const domainEvent = createDomainEvent({ householdId: target.householdId, aggregate: { type: "member", id: target.id }, type: "identity.member-guest-expired.v1", correlationId, causationId: auditEvent.id, occurredAt: input.now.toISOString(), references: {} });
+    const updated = await transaction.member.updateMany({ where: { id: target.id, role: "guest", lifecycle: "active", expiresAt: { lte: input.now } }, data: { lifecycle: "suspended" } });
+    if (updated.count !== 1) return null;
+    await transaction.auditEvent.create({ data: { id: auditEvent.id, householdId: auditEvent.householdId, actorType: auditEvent.actor.type, actorId: auditEvent.actor.id, action: auditEvent.action, targetType: auditEvent.target.type, targetId: auditEvent.target.id, outcome: auditEvent.outcome, correlationId: auditEvent.correlationId, causationId: auditEvent.causationId, metadata: auditEvent.metadata, occurredAt: new Date(auditEvent.occurredAt) } });
+    await transaction.outboxEvent.create({ data: { id: domainEvent.id, householdId: domainEvent.householdId, aggregateType: domainEvent.aggregate.type, aggregateId: domainEvent.aggregate.id, eventType: domainEvent.type, schemaVersion: domainEvent.schemaVersion, correlationId: domainEvent.correlationId, causationId: domainEvent.causationId, references: domainEvent.references, occurredAt: new Date(domainEvent.occurredAt) } });
+    return transaction.member.findUniqueOrThrow({ where: { id: target.id } });
   }, { isolationLevel: "Serializable" });
 }

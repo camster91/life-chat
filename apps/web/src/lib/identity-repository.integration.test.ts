@@ -67,6 +67,48 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
     } finally { await database.$disconnect(); }
   });
 
+  it("unlinks subjects and expires guests with current-state authorization and audit evidence", async () => {
+    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { PrismaClient } = await import("../../generated/prisma/client");
+    const { changeMemberLifecycle, expireGuestMembership, loadActiveHouseholdAccess, MemberLifecycleError, unlinkMemberSubject } = await import("./identity-repository");
+    const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
+    try {
+      const suffix = randomUUID();
+      const now = new Date("2026-08-19T12:00:00.000Z");
+      const household = await database.household.create({ data: { id: `unlink-household-${suffix}`, name: "Unlink" } });
+      const otherHousehold = await database.household.create({ data: { id: `unlink-other-household-${suffix}`, name: "Other" } });
+      const actorSubject = await database.user.create({ data: { id: `unlink-actor-subject-${suffix}`, name: "Actor", email: `unlink-actor-${suffix}@example.test` } });
+      const backupSubject = await database.user.create({ data: { id: `unlink-backup-subject-${suffix}`, name: "Backup", email: `unlink-backup-${suffix}@example.test` } });
+      const childSubject = await database.user.create({ data: { id: `unlink-child-subject-${suffix}`, name: "Child", email: `unlink-child-${suffix}@example.test` } });
+      const otherSubject = await database.user.create({ data: { id: `unlink-other-subject-${suffix}`, name: "Other", email: `unlink-other-${suffix}@example.test` } });
+      const actorMember = await database.member.create({ data: { id: `unlink-actor-${suffix}`, householdId: household.id, authenticatedSubjectId: actorSubject.id, displayName: "Actor", role: "adult", lifecycle: "active" } });
+      const backupAdult = await database.member.create({ data: { id: `unlink-backup-${suffix}`, householdId: household.id, authenticatedSubjectId: backupSubject.id, displayName: "Backup", role: "adult", lifecycle: "active" } });
+      const child = await database.member.create({ data: { id: `unlink-child-${suffix}`, householdId: household.id, authenticatedSubjectId: childSubject.id, displayName: "Child", role: "child", lifecycle: "active" } });
+      const expiredGuest = await database.member.create({ data: { id: `unlink-guest-${suffix}`, householdId: household.id, displayName: "Guest", role: "guest", lifecycle: "active", expiresAt: new Date("2026-08-19T11:59:00.000Z") } });
+      const otherMember = await database.member.create({ data: { id: `unlink-other-${suffix}`, householdId: otherHousehold.id, authenticatedSubjectId: otherSubject.id, displayName: "Other", role: "child", lifecycle: "active" } });
+      const actor = { context: { authenticatedSubjectId: actorSubject.id, memberId: actorMember.id, householdId: household.id }, grants: [] };
+
+      await unlinkMemberSubject(database, { actor, targetMemberId: child.id, now });
+      expect(await database.member.findUniqueOrThrow({ where: { id: child.id } })).toMatchObject({ authenticatedSubjectId: null, lifecycle: "suspended" });
+      await expect(loadActiveHouseholdAccess(database, { authenticatedSubjectId: childSubject.id, requestedMemberId: child.id, now })).rejects.toThrow();
+      await expect(unlinkMemberSubject(database, { actor, targetMemberId: child.id, now })).rejects.toThrow(MemberLifecycleError);
+      await expect(unlinkMemberSubject(database, { actor, targetMemberId: otherMember.id, now })).rejects.toThrow(MemberLifecycleError);
+
+      await unlinkMemberSubject(database, { actor, targetMemberId: backupAdult.id, now });
+      await expect(unlinkMemberSubject(database, { actor, targetMemberId: actorMember.id, now })).rejects.toThrow(MemberLifecycleError);
+      expect(await database.auditEvent.count({ where: { householdId: household.id, action: "identity.member.unlink-subject" } })).toBe(2);
+      expect(await database.outboxEvent.count({ where: { householdId: household.id, eventType: "identity.member-subject-unlinked.v1" } })).toBe(2);
+
+      expect(await expireGuestMembership(database, { targetMemberId: expiredGuest.id, now })).toMatchObject({ lifecycle: "suspended" });
+      expect(await expireGuestMembership(database, { targetMemberId: expiredGuest.id, now })).toBeNull();
+      expect(await database.auditEvent.count({ where: { householdId: household.id, action: "identity.member.expire-guest" } })).toBe(1);
+      expect(await database.outboxEvent.count({ where: { householdId: household.id, eventType: "identity.member-guest-expired.v1" } })).toBe(1);
+
+      await database.member.update({ where: { id: actorMember.id }, data: { lifecycle: "suspended" } });
+      await expect(changeMemberLifecycle(database, { actor: { ...actor, role: "adult" }, targetMemberId: otherMember.id, lifecycle: "suspended", now })).rejects.toThrow(MemberLifecycleError);
+    } finally { await database.$disconnect(); }
+  });
+
   it("persists authorized app enablement and enforces dependencies", async () => {
     const { PrismaPg } = await import("@prisma/adapter-pg");
     const { PrismaClient } = await import("../../generated/prisma/client");

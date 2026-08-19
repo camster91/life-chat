@@ -33,6 +33,8 @@ Authentication proves only the subject. For every server request, the applicatio
 - Household/member switching re-authorizes every request; unsaved changes and pending AI proposals require an explicit UI resolution.
 - A household cannot be left without an adult. The exact adult/capability rule is #4 and must be enforced transactionally.
 - Invitations, member links/unlinks, lifecycle transitions, and active-context changes emit audit events without logging secrets or raw session identifiers.
+- Subject unlinking reauthorizes the current adult inside the serializable transaction, clears the provider-subject link, suspends the member, and prevents removal of the final active adult. A surviving provider session has no household authority after unlinking.
+- Expired guests are denied by request-time context resolution immediately; an idempotent system command also transitions eligible expired guests to suspended and emits one audit/outbox pair.
 - No email address, provider claim, name, or legacy external ID is a stable authorization key.
 
 ## Provider/session boundary
