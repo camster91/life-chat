@@ -30,6 +30,12 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       expect(await database.auditEvent.count({ where: { householdId: household.id, action: "identity.invitation.accept" } })).toBe(1);
       expect(await database.outboxEvent.count({ where: { householdId: household.id, eventType: "identity.invitation-accepted.v1" } })).toBe(1);
       await expect(acceptHouseholdInvitation(database, { token: created.token, subjectId: invitedSubject.id, now })).rejects.toThrow("Invitation has already been accepted.");
+      const expired = await issueHouseholdInvitation(database, { actor: { context: { authenticatedSubjectId: issuerSubject.id, memberId: issuer.id, householdId: household.id }, grants: [] }, intendedRole: "guest", intendedDisplayName: "Expired guest", expiresAt: new Date("2026-08-20T12:00:00.000Z"), now });
+      await expect(acceptHouseholdInvitation(database, { token: expired.token, subjectId: `expired-subject-${suffix}`, now: new Date("2026-08-21T12:00:00.000Z") })).rejects.toThrow("Invitation has expired.");
+      expect(await database.invitation.findUniqueOrThrow({ where: { id: expired.invitation.invitationId } })).toMatchObject({ acceptedAt: null, acceptedMemberId: null });
+      const collision = await issueHouseholdInvitation(database, { actor: { context: { authenticatedSubjectId: issuerSubject.id, memberId: issuer.id, householdId: household.id }, grants: [] }, intendedRole: "child", intendedDisplayName: "Duplicate subject", expiresAt: new Date("2026-08-20T12:00:00.000Z"), now });
+      await expect(acceptHouseholdInvitation(database, { token: collision.token, subjectId: invitedSubject.id, now })).rejects.toThrow();
+      expect(await database.invitation.findUniqueOrThrow({ where: { id: collision.invitation.invitationId } })).toMatchObject({ acceptedAt: null, acceptedMemberId: null });
       expect(await database.member.count({ where: { householdId: household.id } })).toBe(2);
     } finally { await database.$disconnect(); }
   });
@@ -233,6 +239,78 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       await expect(database.notificationPreference.create({ data: { householdId: household.id, memberId: guest.id, remindersEnabled: true, timeZone: "Etc/UTC" } })).rejects.toThrow();
       expect(await database.auditEvent.count({ where: { householdId: household.id, action: "notification.preference.update", targetId: child.id } })).toBe(1);
       expect(await database.outboxEvent.count({ where: { householdId: household.id, eventType: "notification.preference.updated.v1", aggregateId: child.id } })).toBe(1);
+    } finally { await database.$disconnect(); }
+  });
+
+  it("provisions an invited Better Auth account and compensates a lost acceptance race", async () => {
+    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { PrismaClient } = await import("../../generated/prisma/client");
+    const { acceptHouseholdInvitation, issueHouseholdInvitation } = await import("./identity-repository");
+    const { acceptInvitationForNewAccount, InvitationAccountEntryError } = await import("./invitation-account-entry");
+    const { createInvitationAccountProvisioner } = await import("./invitation-auth-core");
+    const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
+    try {
+      const suffix = randomUUID();
+      const now = new Date("2026-08-19T18:00:00.000Z");
+      const environment = {
+        databaseUrl: databaseUrl!,
+        betterAuthUrl: "http://127.0.0.1:3000",
+        trustedOrigin: "http://127.0.0.1:3000",
+        betterAuthSecret: "integration-only-secret-that-is-at-least-thirty-two-characters",
+      };
+      const requestHeaders = new Headers({ origin: environment.trustedOrigin, "user-agent": "life-chat-integration" });
+      const household = await database.household.create({ data: { id: `account-entry-household-${suffix}`, name: "Account entry" } });
+      const issuerSubject = await database.user.create({ data: { id: `account-entry-issuer-${suffix}`, name: "Issuer", email: `account-entry-issuer-${suffix}@example.test` } });
+      const issuer = await database.member.create({ data: { id: `account-entry-member-${suffix}`, householdId: household.id, authenticatedSubjectId: issuerSubject.id, displayName: "Issuer", role: "adult", lifecycle: "active" } });
+      const actor = { context: { authenticatedSubjectId: issuerSubject.id, memberId: issuer.id, householdId: household.id }, grants: [] };
+      const first = await issueHouseholdInvitation(database, { actor, intendedRole: "child", intendedDisplayName: "Invited child", expiresAt: new Date("2026-08-20T18:00:00.000Z"), now });
+      const email = `account-entry-new-${suffix}@example.test`;
+      const password = "integration-password-123";
+      const accepted = await acceptInvitationForNewAccount(database, {
+        token: first.token,
+        email,
+        password,
+        now,
+        provisioner: createInvitationAccountProvisioner({ database, environment, requestHeaders }),
+      });
+      expect(accepted.setCookies.some((cookie) => cookie.includes("better-auth.session_token"))).toBe(true);
+      const createdUser = await database.user.findUniqueOrThrow({ where: { email } });
+      expect(await database.member.findUniqueOrThrow({ where: { householdId_authenticatedSubjectId: { householdId: household.id, authenticatedSubjectId: createdUser.id } } })).toMatchObject({ role: "child", lifecycle: "active" });
+      const credential = await database.account.findFirstOrThrow({ where: { userId: createdUser.id, providerId: "credential" } });
+      expect(credential.password).not.toBe(password);
+      expect(await database.session.count({ where: { userId: createdUser.id } })).toBe(1);
+
+      const duplicateEmailInvite = await issueHouseholdInvitation(database, { actor, intendedRole: "child", intendedDisplayName: "Existing email", expiresAt: new Date("2026-08-20T18:00:00.000Z"), now });
+      await expect(acceptInvitationForNewAccount(database, {
+        token: duplicateEmailInvite.token,
+        email,
+        password,
+        now,
+        provisioner: createInvitationAccountProvisioner({ database, environment, requestHeaders }),
+      })).rejects.toThrow(InvitationAccountEntryError);
+      expect(await database.invitation.findUniqueOrThrow({ where: { id: duplicateEmailInvite.invitation.invitationId } })).toMatchObject({ acceptedAt: null, acceptedMemberId: null });
+
+      const second = await issueHouseholdInvitation(database, { actor, intendedRole: "guest", intendedDisplayName: "Race guest", expiresAt: new Date("2026-08-20T18:00:00.000Z"), now });
+      const competingSubject = await database.user.create({ data: { id: `account-entry-racer-${suffix}`, name: "Racer", email: `account-entry-racer-${suffix}@example.test` } });
+      const realProvisioner = createInvitationAccountProvisioner({ database, environment, requestHeaders });
+      let rolledBackSubjectId = "";
+      await expect(acceptInvitationForNewAccount(database, {
+        token: second.token,
+        email: `account-entry-rollback-${suffix}@example.test`,
+        password,
+        now,
+        provisioner: {
+          async create(input) {
+            const provisioned = await realProvisioner.create(input);
+            rolledBackSubjectId = provisioned.subjectId;
+            await acceptHouseholdInvitation(database, { token: second.token, subjectId: competingSubject.id, now });
+            return provisioned;
+          },
+        },
+      })).rejects.toThrow(InvitationAccountEntryError);
+      expect(await database.user.findUnique({ where: { id: rolledBackSubjectId } })).toBeNull();
+      expect(await database.account.count({ where: { userId: rolledBackSubjectId } })).toBe(0);
+      expect(await database.session.count({ where: { userId: rolledBackSubjectId } })).toBe(0);
     } finally { await database.$disconnect(); }
   });
 });

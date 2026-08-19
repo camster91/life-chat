@@ -13,7 +13,9 @@ export default function SignInPage() {
       <SignInForm />
       <div className="account-help">
         <h2>Need an account?</h2>
-        <p>Life Chat is invite-only during the foundation phase. Ask a household adult for an invitation.</p>
+        <p>Life Chat is invite-only. Ask a household adult for a private code, then <Link href="/join">accept your invitation</Link>.</p>
+        <h2>Password help</h2>
+        <p>Password recovery is deliberately unavailable until the private mail service and recovery operations are configured and tested.</p>
       </div>
     </section>
   </main>;

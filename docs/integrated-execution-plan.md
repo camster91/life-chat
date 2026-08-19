@@ -2,7 +2,7 @@
 
 ## Current state
 
-Shared contracts, migration safeguards, inventories, and presentation/read models exist for every P1 shell surface and mini-app. The repository now has a runnable local Next.js shell, Better Auth session handling, server-derived household/member context, persisted identity and mini-app configuration, notification preferences, an authenticated Today read path, and an assignee-scoped Chore completion path. Shared Lists has persisted create-list/add-item commands but no normal UI. Safe invitation-based account creation, broader P1 stores and routes, delivery workers, browser/accessibility evidence, and production services remain absent. Therefore issues #15–#32 remain open.
+Shared contracts, migration safeguards, inventories, and presentation/read models exist for every P1 shell surface and mini-app. The repository now has a runnable local Next.js shell, invite-only Better Auth account entry, session handling, server-derived household/member context, persisted identity and mini-app configuration, notification preferences, an authenticated Today read path, and an assignee-scoped Chore completion path. Shared Lists has persisted create-list/add-item commands but no normal UI. First-owner operator bootstrap, broader P1 stores and routes, delivery workers, human usability/assistive-technology evidence, and production services remain absent. Therefore issues #15–#32 remain open.
 
 ## External gates
 

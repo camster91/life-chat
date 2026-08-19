@@ -40,10 +40,10 @@ and household records.
 ## Initial sign-in policy
 
 Use local email/password authentication with an invite-only account-creation
-policy. The public Better Auth sign-up endpoint is disabled. A later invitation
-acceptance command must authorize the invitation transactionally before it can
-create/link an account; it must not enable broad self-registration as a
-shortcut.
+policy. The public Better Auth sign-up endpoint is disabled. The invitation
+acceptance command authorizes the invitation transactionally around
+provider-supported account creation/linking; it does not enable broad
+self-registration as a shortcut.
 
 The initial password policy is 12–128 characters. Better Auth's local
 credential storage is used; passwords never enter Life Chat domain records or
@@ -88,27 +88,31 @@ operations, legal guardian policy, production domain, or deployment procedure.
 Those remain separate decisions under ADRs 0002, 0011, and 0018.
 
 Implementation of the first-owner bootstrap, invitation acceptance, and
-recovery delivery is tracked in #53. Until that work is complete, the auth
-foundation deliberately has no route that can create a household account. The
-sign-in route can authenticate only accounts created through the future safe
-bootstrap/invitation path.
+recovery delivery is tracked in #53. The custom `/join` route can create a
+provider account only around a valid pasted invitation or link a signed-in
+subject; the public provider signup endpoint remains disabled. There is still
+no public registration or HTTP first-owner bootstrap route.
 
 The first-owner bootstrap plus invitation issuance/acceptance contracts now
 have durable transaction/audit/outbox persistence, including a local PostgreSQL
 integration test for hashed-token storage and single-use acceptance. A
 lifecycle command also prevents suspension or removal of the final active
 adult, writes audit/outbox evidence, and has local PostgreSQL integration
-coverage. Account creation/linking through a secure entry flow, local
-delivery/recovery, guest expiry, subject/member unlinking, and
-production-readiness validation still remain before #53 can close.
+coverage. The secure invite-only account-entry flow has local
+provider/database, HTTP, keyboard, and automated accessibility evidence. A
+local-only first-owner operator command, delivery/recovery, guest-expiry
+management, subject/member unlinking, human screen-reader review, rate
+limiting, and production-readiness validation still remain before #53 can
+close.
 
 ## Account-entry design gate
 
 Do not create Better Auth user/account rows directly from Life Chat code and do
-not temporarily enable public sign-up. The remaining account-entry flow must
-use a Better Auth-supported mechanism that validates a single-use invitation
-before password/session creation and preserves a recoverable failure path if
-either provider or domain persistence fails. Its transaction boundary, CSRF
-handling, token transport, retry behavior, account-link collision policy, and
-local integration proof require a dedicated implementation decision before a
-route is added.
+not temporarily enable public sign-up. ADR 0041 implements account entry using
+an unmounted server-only Better Auth instance and its supported APIs. The
+mounted public instance keeps sign-up disabled. A custom same-origin endpoint
+prevalidates a pasted invitation code, provisions the account/session, then
+accepts the invitation transactionally. Failed acceptance invokes the
+provider's authenticated deletion API as compensation; surviving orphan
+subjects have no household authority and can sign in to retry. Existing users
+sign in before pasting a code. Raw invitation secrets never enter URLs.
