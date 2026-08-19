@@ -1,5 +1,6 @@
 import { createShellNavigation, isMobilePrimaryRoute } from "../lib/app-shell";
 import { defaultMiniAppConfiguration } from "../lib/mini-app-registry";
+import Link from "next/link";
 
 const navigation = createShellNavigation(defaultMiniAppConfiguration());
 const routeCopy = {
@@ -35,7 +36,7 @@ export default function Home() {
         <div className="shell-workspace">
           <header className="shell-header">
             <a className="brand mobile-brand" href="#today">Life Chat</a>
-            <p>Foundation preview · no household selected</p>
+            <div className="header-actions"><p>Foundation preview · no household selected</p><Link className="secondary-button inline-button" href="/sign-in">Sign in</Link></div>
           </header>
           <main id="main-content" tabIndex={-1}>
           <section id="today" aria-labelledby="today-title">
@@ -45,6 +46,7 @@ export default function Home() {
             <div className="shell-card empty-state">
               <h2>Sign in to see what needs attention</h2>
               <p>This prototype does not load or infer household, member, task, calendar, or message data.</p>
+              <Link className="primary-button inline-button" href="/sign-in">Sign in safely</Link>
             </div>
           </section>
           <section id="apps" className="shell-card" aria-labelledby="apps-title">

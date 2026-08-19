@@ -50,6 +50,13 @@ credential storage is used; passwords never enter Life Chat domain records or
 logs. Account verification, password-reset delivery, MFA, and passkeys remain
 unimplemented until a self-hosted mail/recovery design is selected and tested.
 
+An accessible email/password sign-in screen and a session-aware empty Today
+state now exist locally. Sign-in uses the Better Auth client endpoint, exposes
+no public registration control, returns a generic failure message, and loads no
+household records. A verified account still receives no household authority
+until a later server route resolves an active, subject-linked member and an
+unambiguous or explicitly selected household context.
+
 ## Required acceptance tests for any choice
 
 1. Sign-in yields an opaque subject and no household data without a separately
@@ -79,7 +86,9 @@ Those remain separate decisions under ADRs 0002, 0011, and 0018.
 
 Implementation of the first-owner bootstrap, invitation acceptance, and
 recovery delivery is tracked in #53. Until that work is complete, the auth
-foundation deliberately has no route that can create a household account.
+foundation deliberately has no route that can create a household account. The
+sign-in route can authenticate only accounts created through the future safe
+bootstrap/invitation path.
 
 The first-owner bootstrap plus invitation issuance/acceptance contracts now
 have durable transaction/audit/outbox persistence, including a local PostgreSQL
