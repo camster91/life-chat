@@ -23,8 +23,10 @@ describe("authorize", () => {
 
   it("lets children read shared lists without granting list management", () => {
     expect(authorize({ context, role: "child", grants: [], now, request: { householdId: context.householdId, permission: "lists.read", appId: "shared-lists" } })).toEqual({ allowed: true, source: "baseline" });
+    expect(authorize({ context, role: "child", grants: [], now, request: { householdId: context.householdId, permission: "lists.complete", appId: "shared-lists" } })).toEqual({ allowed: true, source: "baseline" });
     expect(authorize({ context, role: "child", grants: [], now, request: { householdId: context.householdId, permission: "lists.manage", appId: "shared-lists" } })).toEqual({ allowed: false, reason: "missing-permission" });
     expect(authorize({ context, role: "guest", grants: [], now, request: { householdId: context.householdId, permission: "lists.read", appId: "shared-lists" } })).toEqual({ allowed: false, reason: "missing-permission" });
+    expect(authorize({ context, role: "guest", grants: [], now, request: { householdId: context.householdId, permission: "lists.complete", appId: "shared-lists" } })).toEqual({ allowed: false, reason: "missing-permission" });
   });
 
   it("allows only a matching, unexpired scoped grant", () => {

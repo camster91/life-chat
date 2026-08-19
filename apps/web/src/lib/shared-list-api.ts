@@ -17,6 +17,7 @@ export type SharedListItemApiSummary = Readonly<{
   label: string;
   position: number;
   state: "open" | "completed";
+  version: number;
   assignedToActiveMember: boolean;
 }>;
 
@@ -25,5 +26,6 @@ export type SharedListApiResponse = Readonly<{
   title: string;
   version: number;
   canManage: boolean;
+  canComplete: boolean;
   items: readonly SharedListItemApiSummary[];
 }>;

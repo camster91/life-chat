@@ -149,6 +149,7 @@ model SharedListItem {
   position           Int
   state              SharedListItemState @default(open)
   version            Int                 @default(1)
+  completionCommandId String?            @unique
   assignedMemberId   String?
   completedAt        DateTime?
   completedByMemberId String?

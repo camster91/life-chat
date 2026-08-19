@@ -24,12 +24,14 @@ export async function GET(request: NextRequest, route: { params: Promise<{ listI
     const now = new Date();
     const list = await loadSharedList(getDatabase(), { actor: { context: resolved.context, grants: [] }, listId, now });
     const canManage = authorize({ context: resolved.context, role: resolved.member.role, grants: [], request: { householdId: resolved.context.householdId, permission: "lists.manage", appId: "shared-lists" }, now }).allowed;
+    const canComplete = authorize({ context: resolved.context, role: resolved.member.role, grants: [], request: { householdId: resolved.context.householdId, permission: "lists.complete", appId: "shared-lists" }, now }).allowed;
     return json({
       id: list.id,
       title: list.title,
       version: list.version,
       canManage,
-      items: list.items.map((item) => ({ id: item.id, label: item.label, position: item.position, state: item.state, assignedToActiveMember: item.assignedMemberId === resolved.context.memberId })),
+      canComplete,
+      items: list.items.map((item) => ({ id: item.id, label: item.label, position: item.position, state: item.state, version: item.version, assignedToActiveMember: item.assignedMemberId === resolved.context.memberId })),
     });
   } catch (error) {
     if (error instanceof RequestContextError) return json({ error: error.message }, error.reason === "unauthenticated" ? 401 : 409);
