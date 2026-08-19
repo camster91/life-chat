@@ -88,12 +88,52 @@ model Household {
   sharedLists  SharedList[]
   sharedListItems SharedListItem[]
   choreAssignments ChoreAssignment[]
+  calendarItems CalendarItem[]
   notifications NotificationEnvelope[]
   notificationPreferences NotificationPreference[]
   auditEvents  AuditEvent[]
   outboxEvents OutboxEvent[]
 
   @@map("households")
+}
+
+enum CalendarItemKind {
+  all_day
+  timed
+}
+
+enum CalendarItemVisibility {
+  household
+  personal
+}
+
+model CalendarItem {
+  id                   String                 @id @default(cuid())
+  householdId          String
+  ownerMemberId        String?
+  title                String
+  kind                 CalendarItemKind
+  visibility           CalendarItemVisibility @default(household)
+  startDate            String?
+  endDateExclusive     String?
+  startLocalDateTime   String?
+  endLocalDateTime     String?
+  timeZone             String?
+  startInstant         DateTime?              @db.Timestamptz(3)
+  endInstant           DateTime?              @db.Timestamptz(3)
+  sourceAppId          String?
+  sourceRecordId       String?
+  version              Int                    @default(1)
+  archivedAt           DateTime?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  household            Household              @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  ownerMember          Member?                 @relation(fields: [householdId, ownerMemberId], references: [householdId, id], onDelete: Restrict)
+
+  @@index([householdId, startDate, endDateExclusive])
+  @@index([householdId, startInstant, endInstant])
+  @@index([householdId, ownerMemberId, visibility])
+  @@map("calendar_items")
 }
 
 enum ChoreAssignmentState {
@@ -212,6 +252,7 @@ model Member {
   acceptedInvitation     Invitation?     @relation("InvitationAcceptedMember")
   notifications          NotificationEnvelope[]
   notificationPreference NotificationPreference?
+  calendarItemsOwned     CalendarItem[]
 
   @@index([householdId])
   @@index([authenticatedSubjectId])

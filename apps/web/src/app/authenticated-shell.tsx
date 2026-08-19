@@ -7,7 +7,7 @@ import type { AccountContextResponse } from "../lib/account-context";
 import { authClient } from "../lib/auth-client";
 
 type ActiveContext = Extract<AccountContextResponse, { status: "active" }>;
-type ShellDestination = "today" | "apps" | "lists" | "chores";
+type ShellDestination = "today" | "apps" | "calendar" | "lists" | "chores";
 const ActiveShellContext = createContext<ActiveContext | null>(null);
 
 export function useActiveShellContext(): ActiveContext {
@@ -20,7 +20,7 @@ const coreNavigation = [
   { id: "today", label: "Today", href: "/today" },
   { id: "chat", label: "Chat", href: null },
   { id: "apps", label: "Apps", href: "/apps" },
-  { id: "calendar", label: "Calendar", href: null },
+  { id: "calendar", label: "Calendar", href: "/calendar" },
   { id: "family", label: "Family", href: null },
   { id: "search", label: "Search", href: null },
   { id: "notifications", label: "Notifications", href: null },

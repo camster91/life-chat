@@ -2,27 +2,43 @@
 
 ## Status
 
-Accepted for a read-only calendar shell foundation. It does not persist,
-recurrence-expand, edit, notify, or import calendar records.
+Accepted and implemented for the first read-only calendar shell slice. It does
+not create, edit, recurrence-expand, notify, or import calendar records.
 
 ## Decision
 
-An agenda consumes only already-authorized household records. All-day entries
+Calendar records are persisted in the canonical database and always queried
+through the active member and household boundary. Adults and children have the
+initial `calendar.read` baseline permission. Guests are explicitly denied in
+this slice. Household-visible records are available to eligible members;
+personal records are available only to their owning member. The database uses
+a composite household/member foreign key so a personal owner cannot cross a
+household boundary.
+
+An agenda consumes only these already-authorized records. All-day entries
 remain date-only, without a timezone or instant. Timed entries retain original
 local wall time, event IANA timezone, and derived exact instant; the model
-rejects any mismatch. When filtering an agenda date, timed records are viewed
-in the household timezone while source semantics remain unchanged.
+rejects any mismatch. Ranges use an exclusive end and appear on every household
+day they overlap. When filtering an agenda date, timed records are viewed in
+the household timezone while source semantics remain unchanged.
+
+The responsive `/calendar` normal UI provides previous, next, and date-picker
+navigation. The server chooses today's date in the household timezone, and
+each agenda entry has an application-relative deep link back to its canonical
+place in that day.
 
 The model rejects cross-household data, non-authorized items, unsafe external
 links, malformed records, and DST-ambiguous/nonexistent local times. Each
-entry links to its canonical normal UI. It performs no authorization decision
-or data lookup; production services must derive context and record visibility
-server-side before supplying items.
+entry links to its canonical normal UI. The pure aggregator makes no
+authorization decision; the repository performs that decision server-side
+before supplying items.
 
 ## Non-goals and verification
 
-There is no calendar database, recurrence model, write flow, availability,
+There is no recurrence model, participant model, write flow, availability,
 external sync, reminder, mutation proposal, or timezone preference UI. Tests
-cover all-day versus timed semantics, cross-timezone household views,
-household isolation, safe links, and instant integrity. Real route/UI and
-browser/screen-reader validation remain required before #19 can close.
+cover all-day versus timed semantics, overlapping ranges, cross-timezone
+household views, role/member/household isolation, database constraints, safe
+links, and instant integrity. Authenticated browser validation, human
+screen-reader review, and the remaining write/recurrence decisions are still
+required before #19 can close.

@@ -20,6 +20,12 @@ All entities have opaque IDs, `created_at`, `updated_at`, household scope where 
 | audit event | Append-only actor/household/action/target/outcome evidence with correlation/causation IDs, exact timestamp, and bounded redacted metadata; never a data-content replica. |
 | AI conversation/action | Conversation messages and model context references; each consequential action links to an immutable, expiring proposal (operation, affected-record references, bounded field-change summary, validation, reversibility, idempotency key), explicit confirmation, fresh authorization result, executor result, provider/model references, bounded usage/cost metadata, and audit event. Credentials, keys, raw prompts/completions, and provider logs are separate from this shared entity. |
 
+The first persisted Calendar slice implements the shared identity, all-day or
+timed range, household/personal visibility, optional owner, source reference,
+version, and archive boundary. Participants, recurrence, reminders, conflict
+state, and mutations remain planned extensions; they are not represented as
+completed by the initial read-only agenda.
+
 ## Invariants
 
 - Household-scoped queries require server-derived household context.
