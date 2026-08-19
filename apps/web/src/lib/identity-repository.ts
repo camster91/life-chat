@@ -1,7 +1,11 @@
 import type { PrismaClient } from "../../generated/prisma/client";
 import { createAuditEvent, createDomainEvent, newCorrelationId } from "./audit-event";
 import { planFirstOwnerBootstrap } from "./bootstrap-contract";
+import type { ActiveHouseholdContext } from "./identity-context";
 import { acceptInvitation, invitationTokenHash } from "./invitation-contract";
+import { authorize, type BaselineRole, type CapabilityGrant } from "./permission-engine";
+
+export class MemberLifecycleError extends Error {}
 
 /** Durable implementation of the setup-only bootstrap plan. */
 export async function bootstrapFirstOwner(database: PrismaClient, input: {
@@ -31,7 +35,7 @@ export async function bootstrapFirstOwner(database: PrismaClient, input: {
       causationId: plan.auditEvent.id, references: { memberId: plan.owner.memberId }, occurredAt: input.now,
     } });
     return plan;
-  });
+  }, { isolationLevel: "Serializable" });
 }
 
 export async function acceptHouseholdInvitation(database: PrismaClient, input: { token: string; subjectId: string; now: Date }) {
@@ -79,5 +83,68 @@ export async function acceptHouseholdInvitation(database: PrismaClient, input: {
       occurredAt: new Date(domainEvent.occurredAt),
     } });
     return accepted;
+  }, { isolationLevel: "Serializable" });
+}
+
+/**
+ * Changes a member's access lifecycle. `actor.context` must come from a
+ * verified session and server-derived active household context, never from a
+ * browser-supplied household ID.
+ */
+export async function changeMemberLifecycle(database: PrismaClient, input: {
+  actor: { context: ActiveHouseholdContext; role: BaselineRole; grants: readonly CapabilityGrant[] };
+  targetMemberId: string;
+  lifecycle: "suspended" | "removed";
+  now: Date;
+}) {
+  const authorization = authorize({
+    context: input.actor.context,
+    role: input.actor.role,
+    grants: input.actor.grants,
+    request: { householdId: input.actor.context.householdId, permission: "member.manage" },
+    now: input.now,
   });
+  if (!authorization.allowed) throw new MemberLifecycleError("The active member cannot manage household members.");
+
+  // Serializable isolation makes simultaneous final-adult changes fail rather
+  // than permitting two stale counts to remove the household's last adult.
+  return database.$transaction(async (transaction) => {
+    const target = await transaction.member.findFirst({
+      where: { id: input.targetMemberId, householdId: input.actor.context.householdId },
+    });
+    if (target === null) throw new MemberLifecycleError("The requested member is not in the active household.");
+    if (target.lifecycle !== "active") throw new MemberLifecycleError("Only active members can change lifecycle.");
+
+    if (target.role === "adult") {
+      const activeAdultCount = await transaction.member.count({
+        where: { householdId: target.householdId, role: "adult", lifecycle: "active" },
+      });
+      if (activeAdultCount <= 1) throw new MemberLifecycleError("A household must retain at least one active adult.");
+    }
+
+    const correlationId = newCorrelationId();
+    const auditEvent = createAuditEvent({
+      householdId: target.householdId, actor: { type: "member", id: input.actor.context.memberId },
+      action: `identity.member.${input.lifecycle}`, target: { type: "member", id: target.id }, outcome: "succeeded",
+      correlationId, causationId: null, occurredAt: input.now.toISOString(), metadata: { priorRole: target.role },
+    });
+    const domainEvent = createDomainEvent({
+      householdId: target.householdId, aggregate: { type: "member", id: target.id }, type: `identity.member-${input.lifecycle}.v1`,
+      correlationId, causationId: auditEvent.id, occurredAt: input.now.toISOString(), references: { actorMemberId: input.actor.context.memberId },
+    });
+    const member = await transaction.member.update({ where: { id: target.id }, data: { lifecycle: input.lifecycle } });
+    await transaction.auditEvent.create({ data: {
+      id: auditEvent.id, householdId: auditEvent.householdId, actorType: auditEvent.actor.type, actorId: auditEvent.actor.id,
+      action: auditEvent.action, targetType: auditEvent.target.type, targetId: auditEvent.target.id, outcome: auditEvent.outcome,
+      correlationId: auditEvent.correlationId, causationId: auditEvent.causationId, metadata: auditEvent.metadata,
+      occurredAt: new Date(auditEvent.occurredAt),
+    } });
+    await transaction.outboxEvent.create({ data: {
+      id: domainEvent.id, householdId: domainEvent.householdId, aggregateType: domainEvent.aggregate.type,
+      aggregateId: domainEvent.aggregate.id, eventType: domainEvent.type, schemaVersion: domainEvent.schemaVersion,
+      correlationId: domainEvent.correlationId, causationId: domainEvent.causationId, references: domainEvent.references,
+      occurredAt: new Date(domainEvent.occurredAt),
+    } });
+    return member;
+  }, { isolationLevel: "Serializable" });
 }

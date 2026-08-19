@@ -30,4 +30,28 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       expect(await database.member.count({ where: { householdId: household.id } })).toBe(2);
     } finally { await database.$disconnect(); }
   });
+
+  it("denies removing the final adult and audits a permitted lifecycle change", async () => {
+    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { PrismaClient } = await import("../../generated/prisma/client");
+    const { changeMemberLifecycle, MemberLifecycleError } = await import("./identity-repository");
+    const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
+    try {
+      const suffix = randomUUID();
+      const now = new Date("2026-08-18T12:00:00.000Z");
+      const household = await database.household.create({ data: { id: `lifecycle-household-${suffix}`, name: "Lifecycle" } });
+      const firstSubject = await database.user.create({ data: { id: `lifecycle-first-${suffix}`, name: "First", email: `lifecycle-first-${suffix}@example.test` } });
+      const secondSubject = await database.user.create({ data: { id: `lifecycle-second-${suffix}`, name: "Second", email: `lifecycle-second-${suffix}@example.test` } });
+      const firstAdult = await database.member.create({ data: { id: `lifecycle-member-first-${suffix}`, householdId: household.id, authenticatedSubjectId: firstSubject.id, displayName: "First", role: "adult", lifecycle: "active" } });
+      const secondAdult = await database.member.create({ data: { id: `lifecycle-member-second-${suffix}`, householdId: household.id, authenticatedSubjectId: secondSubject.id, displayName: "Second", role: "adult", lifecycle: "active" } });
+      const actor = { context: { authenticatedSubjectId: firstSubject.id, memberId: firstAdult.id, householdId: household.id }, role: "adult" as const, grants: [] };
+
+      await changeMemberLifecycle(database, { actor, targetMemberId: secondAdult.id, lifecycle: "suspended", now });
+      expect(await database.member.findUniqueOrThrow({ where: { id: secondAdult.id } })).toMatchObject({ lifecycle: "suspended" });
+      expect(await database.auditEvent.count({ where: { householdId: household.id, action: "identity.member.suspended" } })).toBe(1);
+      expect(await database.outboxEvent.count({ where: { householdId: household.id, eventType: "identity.member-suspended.v1" } })).toBe(1);
+      await expect(changeMemberLifecycle(database, { actor, targetMemberId: firstAdult.id, lifecycle: "removed", now })).rejects.toThrow(MemberLifecycleError);
+      expect(await database.member.findUniqueOrThrow({ where: { id: firstAdult.id } })).toMatchObject({ lifecycle: "active" });
+    } finally { await database.$disconnect(); }
+  });
 });

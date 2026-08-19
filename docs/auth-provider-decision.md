@@ -83,7 +83,9 @@ foundation deliberately has no route that can create a household account.
 
 The first-owner bootstrap and invitation-acceptance contracts now have durable
 transaction/audit/outbox persistence, including a local PostgreSQL integration
-test for single-use acceptance. Invitation issuance, account creation/linking
-through a secure entry flow, local delivery/recovery, guest expiry, subject or
-member lifecycle controls, and production-readiness validation still remain
-before #53 can close.
+test for single-use acceptance. A lifecycle command also prevents suspension
+or removal of the final active adult, writes audit/outbox evidence, and has
+local PostgreSQL integration coverage. Invitation issuance, account
+creation/linking through a secure entry flow, local delivery/recovery, guest
+expiry, subject/member unlinking, and production-readiness validation still
+remain before #53 can close.
