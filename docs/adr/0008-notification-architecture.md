@@ -4,8 +4,8 @@
 
 Accepted for the foundation. The in-app envelope store, idempotent scheduling
 from an existing domain event, household-bounded due-envelope release, and
-mark-read command are implemented locally. Event-to-template policy and
-delivery adapters remain follow-up work.
+recipient preference/quiet-hour policy are implemented locally. Event-to-template
+policy, preference UI, and delivery adapters remain follow-up work.
 
 ## Context
 
@@ -43,7 +43,10 @@ canonical records, not a parallel source of truth.
   or personal data beyond what that channel strictly requires.
 - Quiet hours are evaluated in the recipient's IANA timezone and defer a
   non-urgent delivery to the next allowed instant. The product has no bypass or
-  emergency-alert promise in this foundation.
+  emergency-alert promise in this foundation. Local persisted preferences use
+  minute-of-day wall-clock bounds. A skipped or repeated quiet-hour end resolves
+  to the later safe instant so a DST transition does not notify earlier than the
+  recipient requested.
 - Notification preference changes, creation, cancellation, delivery attempts,
   and state changes emit safe audit evidence. Delivery receipts are redacted;
   they cannot become a store of message or household content.

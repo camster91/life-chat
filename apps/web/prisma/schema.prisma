@@ -86,6 +86,7 @@ model Household {
   sharedListItems SharedListItem[]
   choreAssignments ChoreAssignment[]
   notifications NotificationEnvelope[]
+  notificationPreferences NotificationPreference[]
   auditEvents  AuditEvent[]
   outboxEvents OutboxEvent[]
 
@@ -191,10 +192,12 @@ model Member {
   issuedInvitations      Invitation[]    @relation("InvitationIssuer")
   acceptedInvitation     Invitation?     @relation("InvitationAcceptedMember")
   notifications          NotificationEnvelope[]
+  notificationPreference NotificationPreference?
 
   @@index([householdId])
   @@index([authenticatedSubjectId])
   @@unique([householdId, authenticatedSubjectId])
+  @@unique([householdId, id])
   @@map("members")
 }
 
@@ -227,6 +230,23 @@ model NotificationEnvelope {
 
   @@index([householdId, recipientMemberId, state, deliverAt])
   @@map("notification_envelopes")
+}
+
+model NotificationPreference {
+  id                    String    @id @default(cuid())
+  householdId           String
+  memberId              String
+  remindersEnabled      Boolean   @default(true)
+  quietHoursStartMinute Int?
+  quietHoursEndMinute   Int?
+  timeZone              String
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  household             Household @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  member                Member    @relation(fields: [householdId, memberId], references: [householdId, id], onDelete: Restrict)
+
+  @@unique([householdId, memberId])
+  @@map("notification_preferences")
 }
 
 enum MemberLifecycle {

@@ -204,4 +204,30 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       expect((await loadNotificationInbox(database, childContext)).some((notification) => notification.id === dismissibleNotification.id)).toBe(false);
     } finally { await database.$disconnect(); }
   });
+
+  it("persists only the active member's authorized notification preferences", async () => {
+    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { PrismaClient } = await import("../../generated/prisma/client");
+    const { loadNotificationPreference, saveNotificationPreference, NotificationPreferenceCommandError } = await import("./notification-preference-repository");
+    const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
+    try {
+      const suffix = randomUUID(); const now = new Date("2026-08-19T12:00:00.000Z");
+      const household = await database.household.create({ data: { id: `notification-preference-household-${suffix}`, name: "Preference household" } });
+      const otherHousehold = await database.household.create({ data: { id: `notification-preference-other-${suffix}`, name: "Other household" } });
+      const childSubject = await database.user.create({ data: { id: `notification-preference-child-${suffix}`, name: "Child", email: `notification-preference-child-${suffix}@example.test` } });
+      const guestSubject = await database.user.create({ data: { id: `notification-preference-guest-${suffix}`, name: "Guest", email: `notification-preference-guest-${suffix}@example.test` } });
+      const child = await database.member.create({ data: { id: `notification-preference-child-member-${suffix}`, householdId: household.id, authenticatedSubjectId: childSubject.id, displayName: "Child", role: "child", lifecycle: "active" } });
+      const guest = await database.member.create({ data: { id: `notification-preference-guest-member-${suffix}`, householdId: otherHousehold.id, authenticatedSubjectId: guestSubject.id, displayName: "Guest", role: "guest", lifecycle: "active" } });
+      const childInput = { context: { authenticatedSubjectId: childSubject.id, householdId: household.id, memberId: child.id }, grants: [], now };
+      const guestInput = { context: { authenticatedSubjectId: guestSubject.id, householdId: otherHousehold.id, memberId: guest.id }, grants: [], now };
+
+      expect(await loadNotificationPreference(database, childInput)).toBeNull();
+      expect(await saveNotificationPreference(database, { ...childInput, remindersEnabled: true, quietHours: { startMinute: 1320, endMinute: 420 }, timeZone: "America/Toronto" })).toMatchObject({ householdId: household.id, memberId: child.id, quietHours: { startMinute: 1320, endMinute: 420 } });
+      expect(await loadNotificationPreference(database, childInput)).toMatchObject({ remindersEnabled: true, timeZone: "America/Toronto" });
+      await expect(saveNotificationPreference(database, { ...guestInput, remindersEnabled: true, quietHours: null, timeZone: "Etc/UTC" })).rejects.toThrow(NotificationPreferenceCommandError);
+      await expect(database.notificationPreference.create({ data: { householdId: household.id, memberId: guest.id, remindersEnabled: true, timeZone: "Etc/UTC" } })).rejects.toThrow();
+      expect(await database.auditEvent.count({ where: { householdId: household.id, action: "notification.preference.update", targetId: child.id } })).toBe(1);
+      expect(await database.outboxEvent.count({ where: { householdId: household.id, eventType: "notification.preference.updated.v1", aggregateId: child.id } })).toBe(1);
+    } finally { await database.$disconnect(); }
+  });
 });

@@ -4,8 +4,9 @@
 
 Accepted for the inbox presentation model, durable recipient-scoped inbox
 loading, replay-safe read/dismiss state, and local release of due scheduled
-envelopes. It does not yet define event-to-template selection policy, send, or
-externally deliver notifications.
+envelopes. Recipient reminder enablement and quiet-hour policy are persisted and
+evaluated locally. It does not yet define event-to-template selection policy,
+render preference controls, send, or externally deliver notifications.
 
 ## Decision
 
@@ -24,12 +25,14 @@ into an external delivery side effect.
 ## Non-goals and verification
 
 No preference UI, channel adapter, externally configured worker, push/email
-payload, batching, or accessibility UI is included. A local
-PostgreSQL store, idempotent same-household event scheduling, recipient-scoped
-inbox query, replay-safe mark-read command, and household-bounded due-envelope
-release operation now exist with audit/outbox evidence. Release rechecks
+payload, batching, or accessibility UI is included. A local PostgreSQL store,
+member-scoped preference repository, DST-aware quiet-hour evaluator, idempotent
+same-household event scheduling, recipient-scoped inbox query, replay-safe
+read/dismiss commands, and household-bounded due-envelope release operation now
+exist with audit/outbox evidence. Release rechecks
 recipient household membership, lifecycle, and guest expiry; ineligible
 recipients are cancelled. Integration tests cover scheduling replay,
-cross-household denial, eligible release, expired-recipient cancellation,
-wrong-recipient denial, and read/dismiss replay. Real delivery/preferences and
-browser/screen-reader validation remain required before #22 can close.
+cross-household denial (including a database constraint), preference
+authorization, eligible release, expired-recipient cancellation,
+wrong-recipient denial, and read/dismiss replay. Preference UI, real delivery,
+and browser/screen-reader validation remain required before #22 can close.
