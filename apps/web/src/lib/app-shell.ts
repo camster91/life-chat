@@ -2,6 +2,7 @@ import { activationEligibility, type HouseholdMiniAppConfiguration, miniAppRegis
 
 export type ShellRoute = "today" | "chat" | "apps" | "calendar" | "family" | "search" | "notifications" | "settings";
 export type ShellNavigationItem = Readonly<{ route: ShellRoute; label: string; available: boolean }>;
+export const mobilePrimaryRoutes: readonly ShellRoute[] = ["today", "chat", "calendar", "apps"];
 
 const coreNavigation: readonly Omit<ShellNavigationItem, "available">[] = [
   { route: "today", label: "Today" },
@@ -18,4 +19,8 @@ const coreNavigation: readonly Omit<ShellNavigationItem, "available">[] = [
 export function createShellNavigation(configuration: HouseholdMiniAppConfiguration): readonly ShellNavigationItem[] {
   const enabledApps = miniAppRegistry.some((app) => activationEligibility(app.id, configuration).eligible);
   return coreNavigation.map((item) => ({ ...item, available: item.route !== "apps" || enabledApps }));
+}
+
+export function isMobilePrimaryRoute(route: ShellRoute): boolean {
+  return mobilePrimaryRoutes.includes(route);
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createShellNavigation } from "./app-shell";
+import { createShellNavigation, isMobilePrimaryRoute, mobilePrimaryRoutes } from "./app-shell";
 import { defaultMiniAppConfiguration } from "./mini-app-registry";
 
 describe("app shell navigation", () => {
@@ -15,5 +15,10 @@ describe("app shell navigation", () => {
     configuration.chores.enabled = true;
 
     expect(createShellNavigation(configuration).find((item) => item.route === "apps")?.available).toBe(true);
+  });
+
+  it("keeps the mobile primary navigation deliberately small", () => {
+    expect(mobilePrimaryRoutes).toEqual(["today", "chat", "calendar", "apps"]);
+    expect(isMobilePrimaryRoute("family")).toBe(false);
   });
 });
