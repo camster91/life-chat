@@ -34,7 +34,8 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
   it("denies removing the final adult and audits a permitted lifecycle change", async () => {
     const { PrismaPg } = await import("@prisma/adapter-pg");
     const { PrismaClient } = await import("../../generated/prisma/client");
-    const { changeMemberLifecycle, MemberLifecycleError } = await import("./identity-repository");
+    const { changeMemberLifecycle, loadActiveHouseholdAccess, MemberLifecycleError } = await import("./identity-repository");
+    const { ActiveContextError } = await import("./identity-context");
     const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
     try {
       const suffix = randomUUID();
@@ -46,6 +47,8 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       const secondAdult = await database.member.create({ data: { id: `lifecycle-member-second-${suffix}`, householdId: household.id, authenticatedSubjectId: secondSubject.id, displayName: "Second", role: "adult", lifecycle: "active" } });
       const actor = { context: { authenticatedSubjectId: firstSubject.id, memberId: firstAdult.id, householdId: household.id }, role: "adult" as const, grants: [] };
 
+      await expect(loadActiveHouseholdAccess(database, { authenticatedSubjectId: firstSubject.id, requestedMemberId: firstAdult.id, now })).resolves.toMatchObject({ context: actor.context, role: "adult" });
+      await expect(loadActiveHouseholdAccess(database, { authenticatedSubjectId: firstSubject.id, requestedMemberId: secondAdult.id, now })).rejects.toThrow(ActiveContextError);
       await changeMemberLifecycle(database, { actor, targetMemberId: secondAdult.id, lifecycle: "suspended", now });
       expect(await database.member.findUniqueOrThrow({ where: { id: secondAdult.id } })).toMatchObject({ lifecycle: "suspended" });
       expect(await database.auditEvent.count({ where: { householdId: household.id, action: "identity.member.suspended" } })).toBe(1);

@@ -1,11 +1,39 @@
 import type { PrismaClient } from "../../generated/prisma/client";
 import { createAuditEvent, createDomainEvent, newCorrelationId } from "./audit-event";
 import { planFirstOwnerBootstrap } from "./bootstrap-contract";
-import type { ActiveHouseholdContext } from "./identity-context";
+import { resolveActiveHouseholdContext, type ActiveHouseholdContext } from "./identity-context";
 import { acceptInvitation, invitationTokenHash } from "./invitation-contract";
 import { authorize, type BaselineRole, type CapabilityGrant } from "./permission-engine";
 
 export class MemberLifecycleError extends Error {}
+
+/**
+ * Loads an active household only from membership records linked to the
+ * authenticated subject. A route must obtain `authenticatedSubjectId` from a
+ * verified server session; it must never accept it from the browser.
+ */
+export async function loadActiveHouseholdAccess(database: PrismaClient, input: {
+  authenticatedSubjectId: string;
+  requestedMemberId?: string;
+  now: Date;
+}): Promise<{ context: ActiveHouseholdContext; role: BaselineRole }> {
+  const members = await database.member.findMany({
+    where: { authenticatedSubjectId: input.authenticatedSubjectId },
+    select: { id: true, householdId: true, authenticatedSubjectId: true, lifecycle: true, expiresAt: true, role: true },
+  });
+  const context = resolveActiveHouseholdContext({
+    authenticatedSubjectId: input.authenticatedSubjectId,
+    requestedMemberId: input.requestedMemberId,
+    now: input.now,
+    members: members.map((member) => ({
+      memberId: member.id, householdId: member.householdId, authenticatedSubjectId: member.authenticatedSubjectId,
+      lifecycle: member.lifecycle, expiresAt: member.expiresAt,
+    })),
+  });
+  const member = members.find((candidate) => candidate.id === context.memberId);
+  if (member === undefined) throw new Error("The resolved active member was not loaded.");
+  return { context, role: member.role };
+}
 
 /** Durable implementation of the setup-only bootstrap plan. */
 export async function bootstrapFirstOwner(database: PrismaClient, input: {
