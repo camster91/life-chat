@@ -1,4 +1,4 @@
-import { createShellNavigation } from "../lib/app-shell";
+import { createShellNavigation, isMobilePrimaryRoute } from "../lib/app-shell";
 import { defaultMiniAppConfiguration } from "../lib/mini-app-registry";
 
 const navigation = createShellNavigation(defaultMiniAppConfiguration());
@@ -16,24 +16,34 @@ export default function Home() {
     <>
       <a className="skip-link" href="#main-content">Skip to main content</a>
       <div className="app-shell">
-        <header className="shell-header">
+        <aside className="shell-sidebar" aria-label="Life Chat navigation">
           <a className="brand" href="#today">Life Chat</a>
-          <p>Prototype shell — no household is selected.</p>
-        </header>
-        <nav aria-label="Primary navigation">
-          <ul className="shell-navigation">
-            {navigation.map((item) => <li key={item.route}>
-              {item.available ? <a href={`#${item.route}`}>{item.label}</a> : <span aria-disabled="true">{item.label}</span>}
-            </li>)}
-          </ul>
-        </nav>
-        <main id="main-content" tabIndex={-1}>
+          <div className="context-card" aria-label="Current household context">
+            <span className="eyebrow">Current space</span>
+            <strong>Sign in to choose a household</strong>
+            <p>No household or member is inferred from this preview.</p>
+          </div>
+          <nav aria-label="Primary navigation">
+            <ul className="shell-navigation">
+              {navigation.map((item) => <li key={item.route}>
+                {item.available ? <a aria-current={item.route === "today" ? "page" : undefined} href={`#${item.route}`}>{item.label}</a> : <span aria-disabled="true">{item.label}<small>Enable an app after sign-in</small></span>}
+              </li>)}
+            </ul>
+          </nav>
+          <p className="shell-note">Normal interfaces remain available alongside chat.</p>
+        </aside>
+        <div className="shell-workspace">
+          <header className="shell-header">
+            <a className="brand mobile-brand" href="#today">Life Chat</a>
+            <p>Foundation preview · no household selected</p>
+          </header>
+          <main id="main-content" tabIndex={-1}>
           <section id="today" aria-labelledby="today-title">
-            <p>Foundation shell</p>
+            <p className="eyebrow">Today</p>
             <h1 id="today-title">A calm place to start your day</h1>
             <p>Life Chat will bring household life together while leaving each important action available in its normal interface.</p>
-            <div className="shell-card">
-              <h2>Sign in to see Today</h2>
+            <div className="shell-card empty-state">
+              <h2>Sign in to see what needs attention</h2>
               <p>This prototype does not load or infer household, member, task, calendar, or message data.</p>
             </div>
           </section>
@@ -47,7 +57,15 @@ export default function Home() {
               <p>{description}</p>
             </section>
           ))}
-        </main>
+          </main>
+          <nav className="mobile-navigation" aria-label="Mobile primary navigation">
+            <ul>
+              {navigation.filter((item) => isMobilePrimaryRoute(item.route)).map((item) => <li key={item.route}>
+                {item.available ? <a aria-current={item.route === "today" ? "page" : undefined} href={`#${item.route}`}>{item.label}</a> : <span aria-disabled="true">{item.label}</span>}
+              </li>)}
+            </ul>
+          </nav>
+        </div>
       </div>
     </>
   );
