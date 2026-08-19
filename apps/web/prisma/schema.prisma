@@ -104,6 +104,7 @@ model Member {
 
   @@index([householdId])
   @@index([authenticatedSubjectId])
+  @@unique([householdId, authenticatedSubjectId])
   @@map("members")
 }
 

@@ -39,7 +39,7 @@ function assertOpaqueId(value: string, name: string): void {
   }
 }
 
-function invitationTokenHash(token: string): string {
+export function invitationTokenHash(token: string): string {
   return createHash("sha256").update(token, "utf8").digest("hex");
 }
 
