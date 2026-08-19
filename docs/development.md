@@ -26,9 +26,10 @@ values: `DATABASE_URL`, `BETTER_AUTH_URL`, and `BETTER_AUTH_SECRET`. Copy it to
 `pnpm --filter @life-chat/web db:generate` or `db:validate`. Never use a VPS,
 production, legacy, or shared database for local generation or tests.
 
-The repository declares an initial Prisma schema but contains no migration. Do
-not create or apply a migration until a disposable local rehearsal and the
-environment/release evidence required by ADR 0018 are in place.
+The repository includes initial Prisma migrations for identity, audit/outbox,
+and the one-subject-per-household membership constraint. They have been
+rehearsed only against an isolated local PostgreSQL database. Do not apply
+them to a VPS, production, legacy, shared, or otherwise unapproved database.
 
 `http://localhost:3000/api/health` intentionally reports only local application readiness.
 
@@ -36,7 +37,7 @@ environment/release evidence required by ADR 0018 are in place.
 
 - Do not use real household data in local fixtures or tests.
 - Use `createLifeChatFixture()` for deterministic fabricated multi-household scenarios; tests must create any mutable copy they need rather than changing the shared fixture.
-- Do not add a database schema or migration before #50 defines environment, migration rehearsal, and release operations.
+- Do not treat the local migration rehearsal as production migration or release evidence.
 - Do not add direct AI-provider calls to UI or mini-app code.
 - Do not treat a local build as release or production evidence.
 - Local test setup may never point at production, a legacy deployment, or an unapproved shared environment.

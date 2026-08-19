@@ -6,9 +6,11 @@ Accepted on 2026-08-18: use **Better Auth**, self-hosted with Life Chat, for
 identity and sessions. It will use the Life Chat PostgreSQL instance on the
 VPS; no managed identity service is a core dependency.
 
-This selects the provider boundary only. No VPS, database, user account,
-session secret, email sender, domain, credential, or production configuration
-has been created. No Better Auth migration has been generated or applied.
+This selects the provider boundary only. No VPS, real user account, session
+secret, email sender, domain, credential, or production configuration has been
+created. The initial Better Auth and Life Chat foundation migrations exist and
+have been rehearsed only against an isolated local PostgreSQL database; they
+have not been applied to a VPS, shared, legacy, or production database.
 
 ## Non-negotiable adapter contract
 
@@ -79,7 +81,9 @@ Implementation of the first-owner bootstrap, invitation acceptance, and
 recovery delivery is tracked in #53. Until that work is complete, the auth
 foundation deliberately has no route that can create a household account.
 
-The initial invitation and first-owner bootstrap contracts are implemented as
-server-domain contracts and schema declarations only. Durable
-transaction/audit/outbox persistence, local delivery/recovery, and PostgreSQL
-integration coverage remain required before #53 can close.
+The first-owner bootstrap and invitation-acceptance contracts now have durable
+transaction/audit/outbox persistence, including a local PostgreSQL integration
+test for single-use acceptance. Invitation issuance, account creation/linking
+through a secure entry flow, local delivery/recovery, guest expiry, subject or
+member lifecycle controls, and production-readiness validation still remain
+before #53 can close.
