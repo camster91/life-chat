@@ -12,7 +12,7 @@ export default function TodayPage() {
           <h1 id="today-title">Your household, clearly scoped</h1>
           <p>Life Chat will show data only after both account and household context have been verified.</p>
         </div>
-        <AccountStatus />
+        <div aria-live="polite" aria-atomic="true"><AccountStatus /></div>
       </section>
     </main>
   </>;

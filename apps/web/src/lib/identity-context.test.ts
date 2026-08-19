@@ -17,6 +17,12 @@ describe("resolveActiveHouseholdContext", () => {
     })).toEqual({ authenticatedSubjectId: subject, memberId: "member-b", householdId: "household-b" });
   });
 
+  it("selects one eligible membership automatically but refuses to guess between several", () => {
+    const member = { memberId: "member-a", householdId: "household-a", authenticatedSubjectId: subject, lifecycle: "active" as const, expiresAt: null };
+    expect(resolveActiveHouseholdContext({ authenticatedSubjectId: subject, members: [member], now })).toMatchObject({ memberId: member.memberId });
+    expect(() => resolveActiveHouseholdContext({ authenticatedSubjectId: subject, members: [member, { ...member, memberId: "member-b", householdId: "household-b" }], now })).toThrow(ActiveContextError);
+  });
+
   it("denies a member selected by another subject, even if the caller knows its identifier", () => {
     expect(() => resolveActiveHouseholdContext({
       authenticatedSubjectId: subject,

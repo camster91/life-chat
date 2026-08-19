@@ -47,6 +47,9 @@ p { max-width: 65ch; color: var(--muted); font-size: 1.05rem; line-height: 1.6; 
 .account-help { padding-top: 1.25rem; border-top: 1px solid var(--line); }
 .account-help h2 { margin-bottom: .35rem; }
 .account-help p { margin: 0; font-size: .95rem; }
+.context-options { display: grid; gap: .75rem; }
+.context-options button { display: grid; justify-items: start; text-align: left; }
+.context-options small { font-weight: 500; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 .skip-link { position: fixed; z-index: 3; top: .5rem; left: .5rem; padding: .75rem 1rem; border-radius: .5rem; background: var(--ink); color: #fff; transform: translateY(-150%); }
 .skip-link:focus { transform: translateY(0); }

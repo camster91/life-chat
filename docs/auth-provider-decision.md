@@ -53,9 +53,12 @@ unimplemented until a self-hosted mail/recovery design is selected and tested.
 An accessible email/password sign-in screen and a session-aware empty Today
 state now exist locally. Sign-in uses the Better Auth client endpoint, exposes
 no public registration control, returns a generic failure message, and loads no
-household records. A verified account still receives no household authority
-until a later server route resolves an active, subject-linked member and an
-unambiguous or explicitly selected household context.
+household records. A server-only context endpoint now resolves only active,
+non-expired members linked to the verified subject. One eligible membership may
+be selected automatically; multiple memberships require an explicit choice
+that is revalidated before an HTTP-only, SameSite-strict active-member cookie is
+written. The endpoint rejects cross-origin selection requests and never treats
+the cookie or a browser-supplied member ID as authority.
 
 ## Required acceptance tests for any choice
 
