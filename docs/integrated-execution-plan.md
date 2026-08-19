@@ -2,7 +2,7 @@
 
 ## Current state
 
-Shared contracts, migration safeguards, inventories, and pure presentation/read models exist for every P1 shell surface and mini-app. They are not a runnable product: authentication, database persistence, server commands, canonical record storage, real routes, delivery workers, and production services are absent. Therefore issues #15–#32 remain open.
+Shared contracts, migration safeguards, inventories, and pure presentation/read models exist for every P1 shell surface and mini-app. The initial identity, invitation-acceptance, audit, and outbox persistence slice has local integration evidence. Life Chat is still not a runnable product: an authenticated entry flow, real application routes, P1 canonical stores and commands, delivery workers, and production services are absent. Therefore issues #15–#32 remain open.
 
 ## External gates
 
@@ -19,7 +19,7 @@ This plan authorizes no deployment, production migration, legacy change/retireme
 
 Implement the selected self-hosted Better Auth/session and PostgreSQL adapters;
 derive active household context server-side; persist household/member/configuration;
-add transactional canonical/audit/outbox writes; enforce authorization, feature
+extend transactional canonical/audit/outbox writes; enforce authorization, feature
 eligibility, idempotency, and version conflicts; implement routes and accessible
 primitives from the selected #42 direction. Do not configure a production
 instance or run migrations until the remaining environment and release gates
