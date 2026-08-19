@@ -114,4 +114,29 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       expect(await database.outboxEvent.count({ where: { householdId: household.id, eventType: { startsWith: "shared-list" } } })).toBe(2);
     } finally { await database.$disconnect(); }
   });
+
+  it("completes only the active child assignee and replays safely", async () => {
+    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { PrismaClient } = await import("../../generated/prisma/client");
+    const { setHouseholdMiniAppEnabled } = await import("./identity-repository");
+    const { completePersistedAssignedChore, ChoreCompletionError } = await import("./chore-repository");
+    const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
+    try {
+      const suffix = randomUUID(); const now = new Date("2026-08-18T12:00:00.000Z");
+      const household = await database.household.create({ data: { id: `chores-household-${suffix}`, name: "Chores" } });
+      const adultSubject = await database.user.create({ data: { id: `chores-adult-${suffix}`, name: "Adult", email: `chores-adult-${suffix}@example.test` } });
+      const childSubject = await database.user.create({ data: { id: `chores-child-${suffix}`, name: "Child", email: `chores-child-${suffix}@example.test` } });
+      const adult = await database.member.create({ data: { id: `chores-adult-member-${suffix}`, householdId: household.id, authenticatedSubjectId: adultSubject.id, displayName: "Adult", role: "adult", lifecycle: "active" } });
+      const child = await database.member.create({ data: { id: `chores-child-member-${suffix}`, householdId: household.id, authenticatedSubjectId: childSubject.id, displayName: "Child", role: "child", lifecycle: "active" } });
+      const adultActor = { context: { authenticatedSubjectId: adultSubject.id, memberId: adult.id, householdId: household.id }, grants: [] };
+      const childContext = { authenticatedSubjectId: childSubject.id, memberId: child.id, householdId: household.id };
+      await setHouseholdMiniAppEnabled(database, { actor: adultActor, appId: "chores", enabled: true, now });
+      const assignment = await database.choreAssignment.create({ data: { householdId: household.id, assigneeMemberId: child.id, title: "Feed pet", dueDate: "2026-08-18" } });
+      await expect(completePersistedAssignedChore(database, { context: adultActor.context, grants: [], assignmentId: assignment.id, commandId: `adult-${suffix}`, now })).rejects.toThrow(ChoreCompletionError);
+      const completed = await completePersistedAssignedChore(database, { context: childContext, grants: [], assignmentId: assignment.id, commandId: `child-${suffix}`, now });
+      expect((await completePersistedAssignedChore(database, { context: childContext, grants: [], assignmentId: assignment.id, commandId: `child-${suffix}`, now })).id).toBe(completed.id);
+      expect(completed).toMatchObject({ state: "completed", completedByMemberId: child.id });
+      expect(await database.auditEvent.count({ where: { householdId: household.id, action: "chores.complete" } })).toBe(1);
+    } finally { await database.$disconnect(); }
+  });
 });

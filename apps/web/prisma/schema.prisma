@@ -84,10 +84,35 @@ model Household {
   miniAppConfigurations HouseholdMiniAppConfiguration[]
   sharedLists  SharedList[]
   sharedListItems SharedListItem[]
+  choreAssignments ChoreAssignment[]
   auditEvents  AuditEvent[]
   outboxEvents OutboxEvent[]
 
   @@map("households")
+}
+
+enum ChoreAssignmentState {
+  assigned
+  completed
+}
+
+model ChoreAssignment {
+  id                    String               @id @default(cuid())
+  householdId           String
+  assigneeMemberId      String
+  title                 String
+  dueDate               String?
+  state                 ChoreAssignmentState @default(assigned)
+  version               Int                  @default(1)
+  completionCommandId   String?              @unique
+  completedAt           DateTime?
+  completedByMemberId   String?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  household             Household            @relation(fields: [householdId], references: [id], onDelete: Restrict)
+
+  @@index([householdId, assigneeMemberId, state])
+  @@map("chore_assignments")
 }
 
 model SharedList {
