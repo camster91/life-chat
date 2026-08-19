@@ -89,6 +89,7 @@ model Household {
   sharedListItems SharedListItem[]
   choreAssignments ChoreAssignment[]
   calendarItems CalendarItem[]
+  memberLifecycleCommands MemberLifecycleCommand[]
   notifications NotificationEnvelope[]
   notificationPreferences NotificationPreference[]
   auditEvents  AuditEvent[]
@@ -253,12 +254,29 @@ model Member {
   notifications          NotificationEnvelope[]
   notificationPreference NotificationPreference?
   calendarItemsOwned     CalendarItem[]
+  lifecycleCommandsActed MemberLifecycleCommand[] @relation("MemberLifecycleCommandActor")
+  lifecycleCommandsTargeted MemberLifecycleCommand[] @relation("MemberLifecycleCommandTarget")
 
   @@index([householdId])
   @@index([authenticatedSubjectId])
   @@unique([householdId, authenticatedSubjectId])
   @@unique([householdId, id])
   @@map("members")
+}
+
+model MemberLifecycleCommand {
+  commandId       String          @id
+  householdId     String
+  actorMemberId   String
+  targetMemberId  String
+  lifecycle       MemberLifecycle
+  createdAt       DateTime        @default(now())
+  household       Household       @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  actorMember     Member          @relation("MemberLifecycleCommandActor", fields: [householdId, actorMemberId], references: [householdId, id], onDelete: Restrict)
+  targetMember    Member          @relation("MemberLifecycleCommandTarget", fields: [householdId, targetMemberId], references: [householdId, id], onDelete: Restrict)
+
+  @@index([householdId, targetMemberId, createdAt])
+  @@map("member_lifecycle_commands")
 }
 
 enum NotificationEnvelopeState {

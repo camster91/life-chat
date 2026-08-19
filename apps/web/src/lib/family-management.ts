@@ -7,6 +7,8 @@ export type FamilyMemberSummary = Readonly<{
   displayName: string;
   role: BaselineRole;
   lifecycle: MemberLifecycle;
+  expiresAt: string | null;
+  hasAccount: boolean;
   authorized: true;
 }>;
 
@@ -20,6 +22,7 @@ function assertSummary(summary: FamilyMemberSummary, context: ActiveHouseholdCon
   if (summary.householdId !== context.householdId) throw new Error("Family member household must match active context");
   if (!summary.authorized) throw new Error("Family member summary must be authorized before display");
   if (summary.memberId.trim().length === 0 || summary.displayName.trim().length === 0 || summary.displayName.length > 120) throw new Error("Family member display data must be bounded");
+  if (summary.expiresAt !== null && !Number.isFinite(Date.parse(summary.expiresAt))) throw new Error("Family member expiry must be an exact timestamp");
 }
 
 export function createFamilyManagementState(input: {

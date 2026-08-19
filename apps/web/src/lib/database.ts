@@ -1,7 +1,7 @@
 import "server-only";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../../generated/prisma/client";
 import { readAuthEnvironment } from "./auth-environment";
+import { createPostgresAdapter } from "./postgres-adapter";
 
 const globalForDatabase = globalThis as typeof globalThis & {
   lifeChatPrisma?: PrismaClient;
@@ -10,7 +10,7 @@ const globalForDatabase = globalThis as typeof globalThis & {
 export function getDatabase(): PrismaClient {
   if (globalForDatabase.lifeChatPrisma === undefined) {
     const { databaseUrl } = readAuthEnvironment();
-    const adapter = new PrismaPg({ connectionString: databaseUrl });
+    const adapter = createPostgresAdapter(databaseUrl);
     globalForDatabase.lifeChatPrisma = new PrismaClient({ adapter });
   }
 

@@ -29,6 +29,17 @@ test("authenticated shell preserves context and enabled-app navigation across de
   await expect(page.getByRole("link", { name: "Shared Lists", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open" })).toBeVisible();
 
+  await page.getByRole("link", { name: "Family", exact: true }).first().click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("People and access, made clear");
+  const childMember = page.getByRole("listitem").filter({ has: page.getByRole("heading", { name: "Alex Child" }) });
+  await childMember.getByRole("button", { name: "Review suspend" }).click();
+  await expect(childMember.getByRole("group", { name: "Confirm suspended Alex Child" })).toBeVisible();
+  await childMember.getByRole("button", { name: "Confirm" }).click();
+  await expect(childMember).toContainText("child · suspended");
+  await expect(childMember.getByRole("button", { name: "Review suspend" })).toHaveCount(0);
+  results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+  expect(results.violations).toEqual([]);
+
   await page.getByRole("link", { name: "Calendar", exact: true }).first().click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("A calm view of the day");
   await expect(page.getByLabel("Choose agenda date")).toBeVisible();

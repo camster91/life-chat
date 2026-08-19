@@ -41,6 +41,10 @@ Household timezone is an IANA timezone and supplies the default for new househol
 
 - Use Temporal through the `@js-temporal/polyfill`; do not parse date-only strings with `Date` or derive timezone from a server/browser default.
 - Parse external data at an adapter boundary, validate IANA IDs, and carry temporal type explicitly across APIs/events.
+- Exact PostgreSQL instants use `timestamptz`. Every Prisma PostgreSQL adapter
+  session is forced to UTC through the shared adapter factory; otherwise the
+  adapter can parse the database host's rendered wall time as UTC and shift an
+  instant. Integration fixtures must use the same factory as the application.
 - Calendar/mini-app code must use shared constructors/helpers and test DST transitions. A later recurrence adapter may implement RFC 5545 parsing but cannot change these semantics.
 
 ## Non-goals
@@ -50,4 +54,4 @@ Household timezone is an IANA timezone and supplies the default for new househol
 
 ## Verification
 
-Unit tests prove date-only values stay zone-free, timed values resolve to UTC instants in an IANA zone, and both missing and repeated DST local times require an explicit resolution. Integration tests later cover UI formatting, recurrence, notification delivery, imports, and physical database columns.
+Unit tests prove date-only values stay zone-free, timed values resolve to UTC instants in an IANA zone, and both missing and repeated DST local times require an explicit resolution. Calendar integration and authenticated browser tests now cover physical exact-instant round trips and source-zone display. Recurrence, notification delivery, and import coverage remain follow-up work.

@@ -5,10 +5,10 @@ const databaseUrl = process.env.LIFE_CHAT_INTEGRATION_DATABASE_URL;
 
 describe.skipIf(databaseUrl === undefined)("calendar repository integration", () => {
   it("loads only household-visible and actor-owned records for eligible members", async () => {
-    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { createPostgresAdapter } = await import("./postgres-adapter");
     const { PrismaClient } = await import("../../generated/prisma/client");
     const { CalendarAccessError, loadCalendarAgenda } = await import("./calendar-repository");
-    const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
+    const database = new PrismaClient({ adapter: createPostgresAdapter(databaseUrl!) });
     try {
       const suffix = randomUUID();
       const now = new Date("2026-08-19T16:00:00Z");
@@ -38,9 +38,9 @@ describe.skipIf(databaseUrl === undefined)("calendar repository integration", ()
   });
 
   it("enforces calendar record shape and same-household ownership in the database", async () => {
-    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { createPostgresAdapter } = await import("./postgres-adapter");
     const { PrismaClient } = await import("../../generated/prisma/client");
-    const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
+    const database = new PrismaClient({ adapter: createPostgresAdapter(databaseUrl!) });
     try {
       const suffix = randomUUID();
       const household = await database.household.create({ data: { id: `calendar-shape-${suffix}`, name: "Shape" } });

@@ -2,30 +2,39 @@
 
 ## Status
 
-Accepted for an authorized directory/read-model and review-only membership
-change proposal. It does not invite, change a role, suspend, remove, or persist
-any household setting.
+Accepted and implemented for an authorized directory and confirmed
+suspend/remove slice. It does not invite, change a role/capability, restore a
+member, or persist any household preference.
 
 ## Decision
 
-The directory receives only already-authorized, household-scoped summaries.
-It verifies household scope and bounded display data, then renders them only
-when the active member passes the server-derived `member.read` decision. This
-keeps child and guest defaults from receiving a household directory merely from
-a client-side view request.
+The repository re-derives the active member and does not query the household
+directory unless that member passes the server-side `member.read` decision.
+Returned summaries verify household scope, bounded display data, account-link
+status, lifecycle, and optional exact expiry. This keeps child and guest
+defaults from receiving a household directory merely from a client-side view
+request or stale shell state.
 
-Membership operations are proposals requiring confirmation. A later privileged
-server command must re-derive active context, reauthorize `member.invite` or
-`member.manage`, validate target/member lifecycle and last-adult safety,
-explicitly confirm, persist atomically, revoke affected sessions/caches as
-needed, and emit audit/domain/outbox events. Invitations must use separate
-privacy-safe delivery and expiry controls.
+The normal UI first creates a local review state for suspend/remove and sends no
+mutation until explicit confirmation. The server then re-derives active
+context, reloads and reauthorizes the actor with `member.manage`, scopes the
+target to the same household, validates active lifecycle and last-adult safety,
+and persists the lifecycle, replay-bound command, audit event, and outbox event
+atomically. A command replay is accepted only for the same actor, target,
+household, and operation. Membership reads are uncached, so a suspended or
+removed member loses application access on the next request without deleting
+their provider account or unrelated household memberships.
+
+Invitations continue to use separate privacy-safe token delivery and expiry
+controls. Their existing backend contract is not exposed by this UI slice.
 
 ## Non-goals and verification
 
-There is no identity store, invitation delivery, role/capability persistence,
-last-adult policy implementation, household preference form, session revocation,
-audit/outbox transaction, or client mutation. Tests cover adult/child directory
-boundaries, proposal-only behavior, household isolation, and bounded display
-data. Browser/screen-reader testing and the real server command remain before
-#20 can close.
+There is no invitation delivery UI, role-change command, capability-grant
+store, restore/reactivation flow, household preference form, or dedicated
+provider-session revocation policy. Tests cover adult/child directory
+boundaries, household isolation, inactive actors, last-adult safety, replay
+binding, atomic audit/outbox evidence, and bounded display data. Authenticated
+desktop/mobile browser and automated accessibility checks cover the review and
+confirmed suspend path. Human screen-reader/usability review and the remaining
+management surfaces are still required before #20 can close.

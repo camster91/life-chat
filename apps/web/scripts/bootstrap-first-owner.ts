@@ -1,9 +1,9 @@
 import "dotenv/config";
-import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma/client";
 import { readAuthEnvironment } from "../src/lib/auth-environment";
 import { bootstrapFirstOwnerAccount } from "../src/lib/first-owner-account-entry";
 import { createInvitationAccountProvisioner } from "../src/lib/invitation-auth-core";
+import { createPostgresAdapter } from "../src/lib/postgres-adapter";
 
 function required(name: string): string {
   const value = process.env[name]?.trim();
@@ -14,7 +14,7 @@ function required(name: string): string {
 async function main() {
   if (required("LIFE_CHAT_BOOTSTRAP_CONFIRM") !== "CREATE_FIRST_LIFE_CHAT_OWNER") throw new Error("Explicit bootstrap confirmation is required.");
   const environment = readAuthEnvironment();
-  const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: environment.databaseUrl }) });
+  const database = new PrismaClient({ adapter: createPostgresAdapter(environment.databaseUrl) });
   try {
     await bootstrapFirstOwnerAccount(database, {
       localOperatorConfirmed: true,

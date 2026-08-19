@@ -5,11 +5,11 @@ const databaseUrl = process.env.LIFE_CHAT_BOOTSTRAP_DATABASE_URL;
 
 describe.skipIf(databaseUrl === undefined)("first-owner account entry integration", () => {
   it("creates one provider-backed owner without a session and refuses replay", async () => {
-    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { createPostgresAdapter } = await import("./postgres-adapter");
     const { PrismaClient } = await import("../../generated/prisma/client");
     const { bootstrapFirstOwnerAccount, FirstOwnerAccountEntryError } = await import("./first-owner-account-entry");
     const { createInvitationAccountProvisioner } = await import("./invitation-auth-core");
-    const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
+    const database = new PrismaClient({ adapter: createPostgresAdapter(databaseUrl!) });
     try {
       const suffix = randomUUID();
       const environment = {

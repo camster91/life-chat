@@ -105,6 +105,12 @@ p { max-width: 65ch; color: var(--muted); font-size: 1.05rem; line-height: 1.6; 
 .calendar-items h3 { margin: .25rem 0 0; font-size: 1rem; }
 .calendar-items a { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; color: var(--accent); font-weight: 700; }
 .calendar-time { color: var(--muted); font-size: .8125rem; }
+.family-members { display: grid; gap: .75rem; margin: 0; padding: 0; list-style: none; }
+.family-members > li { display: grid; gap: .75rem; padding: 1rem; border: 1px solid var(--line); border-radius: .75rem; background: var(--surface); }
+.family-member-summary { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.family-member-summary h3, .family-member-summary p { margin: 0; }
+.family-member-summary h3 { font-size: 1rem; }
+.family-member-summary p { margin-top: .25rem; font-size: .875rem; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 .skip-link { position: fixed; z-index: 3; top: .5rem; left: .5rem; padding: .75rem 1rem; border-radius: .5rem; background: var(--ink); color: #fff; transform: translateY(-150%); }
 .skip-link:focus { transform: translateY(0); }

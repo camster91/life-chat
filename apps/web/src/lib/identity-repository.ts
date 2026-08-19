@@ -272,11 +272,14 @@ export async function changeMemberLifecycle(database: PrismaClient, input: {
   actor: { context: ActiveHouseholdContext; role: BaselineRole; grants: readonly CapabilityGrant[] };
   targetMemberId: string;
   lifecycle: "suspended" | "removed";
+  commandId: string;
   now: Date;
 }) {
+  if (input.commandId.trim().length === 0 || input.commandId.length > 200) throw new MemberLifecycleError("A bounded lifecycle command ID is required.");
   // Serializable isolation makes simultaneous final-adult changes fail rather
   // than permitting two stale counts to remove the household's last adult.
-  return database.$transaction(async (transaction) => {
+  try {
+    return await database.$transaction(async (transaction) => {
     const actor = await transaction.member.findFirst({ where: {
       id: input.actor.context.memberId, householdId: input.actor.context.householdId,
       authenticatedSubjectId: input.actor.context.authenticatedSubjectId, lifecycle: "active",
@@ -288,6 +291,15 @@ export async function changeMemberLifecycle(database: PrismaClient, input: {
       request: { householdId: actor.householdId, permission: "member.manage" }, now: input.now,
     });
     if (!authorization.allowed) throw new MemberLifecycleError("The active member cannot manage household members.");
+    const existingCommand = await transaction.memberLifecycleCommand.findUnique({ where: { commandId: input.commandId } });
+    if (existingCommand !== null) {
+      const authorizedReplay = existingCommand.householdId === actor.householdId
+        && existingCommand.actorMemberId === actor.id
+        && existingCommand.targetMemberId === input.targetMemberId
+        && existingCommand.lifecycle === input.lifecycle;
+      if (!authorizedReplay) throw new MemberLifecycleError("The lifecycle command cannot cross actor, target, operation, or household boundaries.");
+      return transaction.member.findUniqueOrThrow({ where: { id: existingCommand.targetMemberId } });
+    }
     const target = await transaction.member.findFirst({
       where: { id: input.targetMemberId, householdId: actor.householdId },
     });
@@ -312,6 +324,7 @@ export async function changeMemberLifecycle(database: PrismaClient, input: {
       correlationId, causationId: auditEvent.id, occurredAt: input.now.toISOString(), references: { actorMemberId: actor.id },
     });
     const member = await transaction.member.update({ where: { id: target.id }, data: { lifecycle: input.lifecycle } });
+    await transaction.memberLifecycleCommand.create({ data: { commandId: input.commandId, householdId: target.householdId, actorMemberId: actor.id, targetMemberId: target.id, lifecycle: input.lifecycle } });
     await transaction.auditEvent.create({ data: {
       id: auditEvent.id, householdId: auditEvent.householdId, actorType: auditEvent.actor.type, actorId: auditEvent.actor.id,
       action: auditEvent.action, targetType: auditEvent.target.type, targetId: auditEvent.target.id, outcome: auditEvent.outcome,
@@ -325,7 +338,25 @@ export async function changeMemberLifecycle(database: PrismaClient, input: {
       occurredAt: new Date(domainEvent.occurredAt),
     } });
     return member;
-  }, { isolationLevel: "Serializable" });
+    }, { isolationLevel: "Serializable" });
+  } catch (error) {
+    if (typeof error !== "object" || error === null || !("code" in error) || (error.code !== "P2002" && error.code !== "P2034")) throw error;
+    const actor = await database.member.findFirst({ where: {
+      id: input.actor.context.memberId, householdId: input.actor.context.householdId,
+      authenticatedSubjectId: input.actor.context.authenticatedSubjectId, lifecycle: "active",
+      OR: [{ expiresAt: null }, { expiresAt: { gt: input.now } }],
+    } });
+    if (actor === null || !authorize({ context: input.actor.context, role: actor.role, grants: input.actor.grants, request: { householdId: actor.householdId, permission: "member.manage" }, now: input.now }).allowed) {
+      throw new MemberLifecycleError("The active member cannot replay a lifecycle command.");
+    }
+    const existingCommand = await database.memberLifecycleCommand.findUnique({ where: { commandId: input.commandId } });
+    if (existingCommand === null
+      || existingCommand.householdId !== actor.householdId
+      || existingCommand.actorMemberId !== actor.id
+      || existingCommand.targetMemberId !== input.targetMemberId
+      || existingCommand.lifecycle !== input.lifecycle) throw new MemberLifecycleError("The member changed before the lifecycle command could be saved.");
+    return database.member.findUniqueOrThrow({ where: { id: existingCommand.targetMemberId } });
+  }
 }
 
 export async function unlinkMemberSubject(database: PrismaClient, input: {

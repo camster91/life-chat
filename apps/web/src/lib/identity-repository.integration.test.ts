@@ -5,10 +5,10 @@ const databaseUrl = process.env.LIFE_CHAT_INTEGRATION_DATABASE_URL;
 
 describe.skipIf(databaseUrl === undefined)("identity repository integration", () => {
   it("accepts an invitation once and writes the member, audit, and outbox records together", async () => {
-    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { createPostgresAdapter } = await import("./postgres-adapter");
     const { PrismaClient } = await import("../../generated/prisma/client");
     const { acceptHouseholdInvitation, issueHouseholdInvitation } = await import("./identity-repository");
-    const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
+    const database = new PrismaClient({ adapter: createPostgresAdapter(databaseUrl!) });
     try {
       const suffix = randomUUID();
       const now = new Date("2026-08-18T12:00:00.000Z");
@@ -41,11 +41,11 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
   });
 
   it("denies removing the final adult and audits a permitted lifecycle change", async () => {
-    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { createPostgresAdapter } = await import("./postgres-adapter");
     const { PrismaClient } = await import("../../generated/prisma/client");
     const { changeMemberLifecycle, loadActiveHouseholdAccess, MemberLifecycleError } = await import("./identity-repository");
     const { ActiveContextError } = await import("./identity-context");
-    const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
+    const database = new PrismaClient({ adapter: createPostgresAdapter(databaseUrl!) });
     try {
       const suffix = randomUUID();
       const now = new Date("2026-08-18T12:00:00.000Z");
@@ -58,20 +58,23 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
 
       await expect(loadActiveHouseholdAccess(database, { authenticatedSubjectId: firstSubject.id, requestedMemberId: firstAdult.id, now })).resolves.toMatchObject({ context: actor.context, role: "adult" });
       await expect(loadActiveHouseholdAccess(database, { authenticatedSubjectId: firstSubject.id, requestedMemberId: secondAdult.id, now })).rejects.toThrow(ActiveContextError);
-      await changeMemberLifecycle(database, { actor, targetMemberId: secondAdult.id, lifecycle: "suspended", now });
+      await changeMemberLifecycle(database, { actor, targetMemberId: secondAdult.id, lifecycle: "suspended", commandId: `lifecycle-suspend-${suffix}`, now });
+      await changeMemberLifecycle(database, { actor, targetMemberId: secondAdult.id, lifecycle: "suspended", commandId: `lifecycle-suspend-${suffix}`, now });
+      await expect(changeMemberLifecycle(database, { actor, targetMemberId: firstAdult.id, lifecycle: "removed", commandId: `lifecycle-suspend-${suffix}`, now })).rejects.toThrow(MemberLifecycleError);
       expect(await database.member.findUniqueOrThrow({ where: { id: secondAdult.id } })).toMatchObject({ lifecycle: "suspended" });
       expect(await database.auditEvent.count({ where: { householdId: household.id, action: "identity.member.suspended" } })).toBe(1);
       expect(await database.outboxEvent.count({ where: { householdId: household.id, eventType: "identity.member-suspended.v1" } })).toBe(1);
-      await expect(changeMemberLifecycle(database, { actor, targetMemberId: firstAdult.id, lifecycle: "removed", now })).rejects.toThrow(MemberLifecycleError);
+      expect(await database.memberLifecycleCommand.count({ where: { householdId: household.id, targetMemberId: secondAdult.id } })).toBe(1);
+      await expect(changeMemberLifecycle(database, { actor, targetMemberId: firstAdult.id, lifecycle: "removed", commandId: `lifecycle-final-${suffix}`, now })).rejects.toThrow(MemberLifecycleError);
       expect(await database.member.findUniqueOrThrow({ where: { id: firstAdult.id } })).toMatchObject({ lifecycle: "active" });
     } finally { await database.$disconnect(); }
   });
 
   it("unlinks subjects and expires guests with current-state authorization and audit evidence", async () => {
-    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { createPostgresAdapter } = await import("./postgres-adapter");
     const { PrismaClient } = await import("../../generated/prisma/client");
     const { changeMemberLifecycle, expireGuestMembership, loadActiveHouseholdAccess, MemberLifecycleError, unlinkMemberSubject } = await import("./identity-repository");
-    const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
+    const database = new PrismaClient({ adapter: createPostgresAdapter(databaseUrl!) });
     try {
       const suffix = randomUUID();
       const now = new Date("2026-08-19T12:00:00.000Z");
@@ -105,15 +108,15 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       expect(await database.outboxEvent.count({ where: { householdId: household.id, eventType: "identity.member-guest-expired.v1" } })).toBe(1);
 
       await database.member.update({ where: { id: actorMember.id }, data: { lifecycle: "suspended" } });
-      await expect(changeMemberLifecycle(database, { actor: { ...actor, role: "adult" }, targetMemberId: otherMember.id, lifecycle: "suspended", now })).rejects.toThrow(MemberLifecycleError);
+      await expect(changeMemberLifecycle(database, { actor: { ...actor, role: "adult" }, targetMemberId: otherMember.id, lifecycle: "suspended", commandId: `lifecycle-cross-${suffix}`, now })).rejects.toThrow(MemberLifecycleError);
     } finally { await database.$disconnect(); }
   });
 
   it("persists authorized app enablement and enforces dependencies", async () => {
-    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { createPostgresAdapter } = await import("./postgres-adapter");
     const { PrismaClient } = await import("../../generated/prisma/client");
     const { MiniAppConfigurationConflictError, MiniAppConfigurationError, setHouseholdMiniAppEnabled } = await import("./identity-repository");
-    const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
+    const database = new PrismaClient({ adapter: createPostgresAdapter(databaseUrl!) });
     try {
       const suffix = randomUUID();
       const now = new Date("2026-08-18T12:00:00.000Z");
@@ -142,11 +145,11 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
   });
 
   it("creates replay-safe household-scoped shared lists only when the app is enabled", async () => {
-    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { createPostgresAdapter } = await import("./postgres-adapter");
     const { PrismaClient } = await import("../../generated/prisma/client");
     const { setHouseholdMiniAppEnabled } = await import("./identity-repository");
     const { addSharedListItem, completeSharedListItem, createSharedList, loadSharedList, loadSharedLists, SharedListCommandError, SharedListConflictError } = await import("./shared-list-repository");
-    const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
+    const database = new PrismaClient({ adapter: createPostgresAdapter(databaseUrl!) });
     try {
       const suffix = randomUUID();
       const now = new Date("2026-08-18T12:00:00.000Z");
@@ -196,13 +199,13 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
   });
 
   it("completes only the active child assignee and replays safely", async () => {
-    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { createPostgresAdapter } = await import("./postgres-adapter");
     const { PrismaClient } = await import("../../generated/prisma/client");
     const { setHouseholdMiniAppEnabled } = await import("./identity-repository");
     const { completePersistedAssignedChore, ChoreCompletionError } = await import("./chore-repository");
     const { searchAuthorizedRecords } = await import("./global-search-repository");
     const { loadTodayDashboard } = await import("./today-dashboard-repository");
-    const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
+    const database = new PrismaClient({ adapter: createPostgresAdapter(databaseUrl!) });
     try {
       const suffix = randomUUID(); const now = new Date("2026-08-18T12:00:00.000Z");
       const household = await database.household.create({ data: { id: `chores-household-${suffix}`, name: "Chores", timeZone: "America/Toronto", locale: "en-CA" } });
@@ -229,10 +232,10 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
   });
 
   it("schedules one notification only for an eligible same-household recipient", async () => {
-    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { createPostgresAdapter } = await import("./postgres-adapter");
     const { PrismaClient } = await import("../../generated/prisma/client");
     const { scheduleNotificationEnvelope, NotificationCommandError } = await import("./notification-repository");
-    const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
+    const database = new PrismaClient({ adapter: createPostgresAdapter(databaseUrl!) });
     try {
       const suffix = randomUUID(); const now = new Date("2026-08-19T10:00:00.000Z");
       const household = await database.household.create({ data: { id: `notification-schedule-household-${suffix}`, name: "Schedule notifications" } });
@@ -252,10 +255,10 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
   });
 
   it("loads and marks read only the active recipient's notification", async () => {
-    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { createPostgresAdapter } = await import("./postgres-adapter");
     const { PrismaClient } = await import("../../generated/prisma/client");
     const { dismissNotification, loadNotificationInbox, markNotificationRead, releaseDueNotifications, NotificationCommandError } = await import("./notification-repository");
-    const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
+    const database = new PrismaClient({ adapter: createPostgresAdapter(databaseUrl!) });
     try {
       const suffix = randomUUID(); const now = new Date("2026-08-19T10:00:00.000Z");
       const household = await database.household.create({ data: { id: `notifications-household-${suffix}`, name: "Notifications" } });
@@ -288,10 +291,10 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
   });
 
   it("persists only the active member's authorized notification preferences", async () => {
-    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { createPostgresAdapter } = await import("./postgres-adapter");
     const { PrismaClient } = await import("../../generated/prisma/client");
     const { loadNotificationPreference, saveNotificationPreference, NotificationPreferenceCommandError } = await import("./notification-preference-repository");
-    const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
+    const database = new PrismaClient({ adapter: createPostgresAdapter(databaseUrl!) });
     try {
       const suffix = randomUUID(); const now = new Date("2026-08-19T12:00:00.000Z");
       const household = await database.household.create({ data: { id: `notification-preference-household-${suffix}`, name: "Preference household" } });
@@ -314,12 +317,12 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
   });
 
   it("provisions an invited Better Auth account and compensates a lost acceptance race", async () => {
-    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { createPostgresAdapter } = await import("./postgres-adapter");
     const { PrismaClient } = await import("../../generated/prisma/client");
     const { acceptHouseholdInvitation, issueHouseholdInvitation } = await import("./identity-repository");
     const { acceptInvitationForNewAccount, InvitationAccountEntryError } = await import("./invitation-account-entry");
     const { createInvitationAccountProvisioner } = await import("./invitation-auth-core");
-    const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
+    const database = new PrismaClient({ adapter: createPostgresAdapter(databaseUrl!) });
     try {
       const suffix = randomUUID();
       const now = new Date("2026-08-19T18:00:00.000Z");
