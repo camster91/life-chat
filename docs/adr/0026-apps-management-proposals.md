@@ -2,8 +2,9 @@
 
 ## Status
 
-Accepted for an authorized, read-only management view and review-only
-configuration proposal. It does not persist any app configuration.
+Accepted for an authorized management view, confirmation UI, and persisted
+versioned configuration command. Per-app settings and member visibility remain
+future work.
 
 ## Decision
 
@@ -15,15 +16,23 @@ from the UI or client-provided household identifiers.
 An authorized member may create a confirmation-required proposal to enable or
 disable one app. The proposal is rejected if it repeats current state, enables
 an app with missing dependencies, or disables an app with enabled dependents.
-The proposal is not a write: a future server command must re-derive context,
-reauthorize, re-check dependency/configuration versions, explicitly confirm,
-persist atomically, emit audit/domain/outbox events, and retain disabled-app
-data according to governance policy.
+The proposal is not a write. Confirmation calls a server command that re-derives
+context, reauthorizes, checks the expected configuration version and current
+dependencies, and persists configuration, command replay record, audit event,
+and outbox event in one serializable transaction. Command replay is allowed only
+after reauthorization and must match the original actor, household, app, and
+target state. Disabling changes configuration only and retains app data.
+
+Adults with `mini-app.configure` see the full registry and may propose changes.
+Children with household read access see only enabled eligible apps. Guests are
+denied the Apps API. The client never supplies a trusted household identifier.
 
 ## Non-goals and verification
 
-There is no settings form, member visibility override, configuration storage,
-audit event, transaction, live toggle, or data deletion. Tests cover adult vs
-child authorization, registry state, confirmation-only proposals, dependency
-activation, and dependent-disable blocking. Browser/screen-reader testing and
-the real configuration command remain required before issue #18 can close.
+There is no per-app settings form, member visibility override, bulk change,
+offline queue, or data deletion. Tests cover adult/child authorization,
+registry state, confirmation-only proposals, dependency activation,
+dependent-disable blocking, optimistic conflicts, replay safety, suspended
+actors, transactions, and audit/outbox records. Authenticated browser coverage
+for the mutation UI and human screen-reader testing remain before issue #18 can
+close.

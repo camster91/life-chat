@@ -112,7 +112,7 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
   it("persists authorized app enablement and enforces dependencies", async () => {
     const { PrismaPg } = await import("@prisma/adapter-pg");
     const { PrismaClient } = await import("../../generated/prisma/client");
-    const { MiniAppConfigurationError, setHouseholdMiniAppEnabled } = await import("./identity-repository");
+    const { MiniAppConfigurationConflictError, MiniAppConfigurationError, setHouseholdMiniAppEnabled } = await import("./identity-repository");
     const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
     try {
       const suffix = randomUUID();
@@ -121,14 +121,23 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       const subject = await database.user.create({ data: { id: `apps-subject-${suffix}`, name: "Adult", email: `apps-${suffix}@example.test` } });
       const member = await database.member.create({ data: { id: `apps-member-${suffix}`, householdId: household.id, authenticatedSubjectId: subject.id, displayName: "Adult", role: "adult", lifecycle: "active" } });
       const actor = { context: { authenticatedSubjectId: subject.id, memberId: member.id, householdId: household.id }, grants: [] };
+      const childSubject = await database.user.create({ data: { id: `apps-child-subject-${suffix}`, name: "Child", email: `apps-child-${suffix}@example.test` } });
+      const child = await database.member.create({ data: { id: `apps-child-member-${suffix}`, householdId: household.id, authenticatedSubjectId: childSubject.id, displayName: "Child", role: "child", lifecycle: "active" } });
+      const childActor = { context: { authenticatedSubjectId: childSubject.id, memberId: child.id, householdId: household.id }, grants: [] };
 
-      await expect(setHouseholdMiniAppEnabled(database, { actor, appId: "rewards", enabled: true, now })).rejects.toThrow(MiniAppConfigurationError);
-      await setHouseholdMiniAppEnabled(database, { actor, appId: "chores", enabled: true, now });
-      await setHouseholdMiniAppEnabled(database, { actor, appId: "rewards", enabled: true, now });
-      await expect(setHouseholdMiniAppEnabled(database, { actor, appId: "chores", enabled: false, now })).rejects.toThrow(MiniAppConfigurationError);
+      await expect(setHouseholdMiniAppEnabled(database, { actor, appId: "rewards", enabled: true, expectedVersion: 0, commandId: `apps-rewards-blocked-${suffix}`, now })).rejects.toThrow(MiniAppConfigurationError);
+      const chores = await setHouseholdMiniAppEnabled(database, { actor, appId: "chores", enabled: true, expectedVersion: 0, commandId: `apps-chores-${suffix}`, now });
+      expect((await setHouseholdMiniAppEnabled(database, { actor, appId: "chores", enabled: true, expectedVersion: 0, commandId: `apps-chores-${suffix}`, now })).id).toBe(chores.id);
+      await setHouseholdMiniAppEnabled(database, { actor, appId: "rewards", enabled: true, expectedVersion: 0, commandId: `apps-rewards-${suffix}`, now });
+      await expect(setHouseholdMiniAppEnabled(database, { actor, appId: "chores", enabled: false, expectedVersion: 1, commandId: `apps-chores-disable-${suffix}`, now })).rejects.toThrow(MiniAppConfigurationError);
+      await expect(setHouseholdMiniAppEnabled(database, { actor, appId: "rewards", enabled: false, expectedVersion: 0, commandId: `apps-rewards-stale-${suffix}`, now })).rejects.toThrow(MiniAppConfigurationConflictError);
+      await expect(setHouseholdMiniAppEnabled(database, { actor: childActor, appId: "shared-lists", enabled: true, expectedVersion: 0, commandId: `apps-child-${suffix}`, now })).rejects.toThrow(MiniAppConfigurationError);
       expect(await database.householdMiniAppConfiguration.findMany({ where: { householdId: household.id, enabled: true }, orderBy: { appId: "asc" } })).toMatchObject([{ appId: "chores", enabled: true }, { appId: "rewards", enabled: true }]);
       expect(await database.auditEvent.count({ where: { householdId: household.id, action: "mini-app.enable" } })).toBe(2);
       expect(await database.outboxEvent.count({ where: { householdId: household.id, eventType: "mini-app.enabled.v1" } })).toBe(2);
+      expect(await database.miniAppConfigurationCommand.count({ where: { householdId: household.id } })).toBe(2);
+      await database.member.update({ where: { id: member.id }, data: { lifecycle: "suspended" } });
+      await expect(setHouseholdMiniAppEnabled(database, { actor, appId: "chores", enabled: true, expectedVersion: 0, commandId: `apps-chores-${suffix}`, now })).rejects.toThrow(MiniAppConfigurationError);
     } finally { await database.$disconnect(); }
   });
 
@@ -152,7 +161,7 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       const guest = await database.member.create({ data: { id: `lists-guest-member-${suffix}`, householdId: household.id, authenticatedSubjectId: guestSubject.id, displayName: "Guest", role: "guest", lifecycle: "active" } });
       const guestActor = { context: { authenticatedSubjectId: guestSubject.id, memberId: guest.id, householdId: household.id }, grants: [] };
       await expect(createSharedList(database, { actor, title: "Errands", commandId: `list-${suffix}`, now })).rejects.toThrow(SharedListCommandError);
-      await setHouseholdMiniAppEnabled(database, { actor, appId: "shared-lists", enabled: true, now });
+      await setHouseholdMiniAppEnabled(database, { actor, appId: "shared-lists", enabled: true, expectedVersion: 0, commandId: `lists-enable-${suffix}`, now });
       const list = await createSharedList(database, { actor, title: "Errands", commandId: `list-${suffix}`, now });
       expect((await createSharedList(database, { actor, title: "Ignored replay", commandId: `list-${suffix}`, now })).id).toBe(list.id);
       const item = await addSharedListItem(database, { actor, listId: list.id, label: "Buy fruit", commandId: `item-${suffix}`, now });
@@ -171,7 +180,7 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       const otherSubject = await database.user.create({ data: { id: `lists-other-subject-${suffix}`, name: "Other adult", email: `lists-other-${suffix}@example.test` } });
       const otherMember = await database.member.create({ data: { id: `lists-other-member-${suffix}`, householdId: otherHousehold.id, authenticatedSubjectId: otherSubject.id, displayName: "Other adult", role: "adult", lifecycle: "active" } });
       const otherActor = { context: { authenticatedSubjectId: otherSubject.id, memberId: otherMember.id, householdId: otherHousehold.id }, grants: [] };
-      await setHouseholdMiniAppEnabled(database, { actor: otherActor, appId: "shared-lists", enabled: true, now });
+      await setHouseholdMiniAppEnabled(database, { actor: otherActor, appId: "shared-lists", enabled: true, expectedVersion: 0, commandId: `lists-other-enable-${suffix}`, now });
       await expect(addSharedListItem(database, { actor: otherActor, listId: list.id, label: "Cross-household", commandId: `cross-${suffix}`, now })).rejects.toThrow(SharedListCommandError);
       expect(await loadSharedLists(database, { actor: otherActor, now })).toEqual([]);
       await expect(loadSharedList(database, { actor: otherActor, listId: list.id, now })).rejects.toThrow(SharedListCommandError);
@@ -203,7 +212,7 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       const child = await database.member.create({ data: { id: `chores-child-member-${suffix}`, householdId: household.id, authenticatedSubjectId: childSubject.id, displayName: "Child", role: "child", lifecycle: "active" } });
       const adultActor = { context: { authenticatedSubjectId: adultSubject.id, memberId: adult.id, householdId: household.id }, grants: [] };
       const childContext = { authenticatedSubjectId: childSubject.id, memberId: child.id, householdId: household.id };
-      await setHouseholdMiniAppEnabled(database, { actor: adultActor, appId: "chores", enabled: true, now });
+      await setHouseholdMiniAppEnabled(database, { actor: adultActor, appId: "chores", enabled: true, expectedVersion: 0, commandId: `chores-enable-${suffix}`, now });
       const assignment = await database.choreAssignment.create({ data: { householdId: household.id, assigneeMemberId: child.id, title: "Feed pet", dueDate: "2026-08-18" } });
       expect(await searchAuthorizedRecords(database, { context: childContext, query: "feed" })).toMatchObject([{ type: "Chore", results: [{ id: assignment.id }] }]);
       expect(await searchAuthorizedRecords(database, { context: adultActor.context, query: "feed" })).toEqual([]);

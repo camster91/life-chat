@@ -78,6 +78,11 @@ p { max-width: 65ch; color: var(--muted); font-size: 1.05rem; line-height: 1.6; 
 .list-cards a:hover { border-color: var(--accent); }
 .list-cards span, .list-items small { color: var(--muted); font-size: .875rem; }
 .app-card-disabled { display: flex; min-height: 64px; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem; border: 1px solid var(--line); border-radius: .75rem; background: var(--surface); }
+.app-management-list { display: grid; gap: .75rem; margin: 2rem 0 0; padding: 0; list-style: none; }
+.app-management-list > li { display: grid; gap: .75rem; padding: 1rem; border: 1px solid var(--line); border-radius: .75rem; background: var(--surface); }
+.app-management-list > li > div:first-child { display: grid; gap: .2rem; }
+.app-management-list span, .app-management-list small { color: var(--muted); }
+.app-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 .list-items li { display: grid; min-height: 52px; gap: .75rem; padding: .85rem 1rem; border: 1px solid var(--line); border-radius: .65rem; background: var(--surface); }
 .list-item-content { display: flex; align-items: center; gap: .75rem; }
 .list-item-content span { margin-right: auto; }

@@ -16,13 +16,18 @@ test("authenticated shell preserves context and enabled-app navigation across de
   await page.waitForURL(`${baseUrl}/today`);
   await expect(page.getByLabel("Current household context")).toContainText("Shell Test Home");
   await expect(page.getByRole("link", { name: "Today", exact: true }).first()).toHaveAttribute("aria-current", "page");
-  await expect(page.getByRole("link", { name: "Shared Lists", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Shared Lists", exact: true })).toHaveCount(0);
   let results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
   expect(results.violations).toEqual([]);
 
   await page.getByRole("link", { name: "Apps", exact: true }).first().click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Household apps");
-  await expect(page.getByRole("link", { name: /Shared Lists/ })).toBeVisible();
+  const sharedLists = page.getByRole("listitem").filter({ has: page.getByText("Shared lists", { exact: true }) });
+  await sharedLists.getByRole("button", { name: "Review enable" }).click();
+  await expect(sharedLists.getByRole("group", { name: "Confirm enable Shared lists" })).toBeVisible();
+  await Promise.all([page.waitForEvent("load"), sharedLists.getByRole("button", { name: "Confirm" }).click()]);
+  await expect(page.getByRole("link", { name: "Shared Lists", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open" })).toBeVisible();
 
   await page.setViewportSize({ width: 375, height: 812 });
   const primaryTargets = page.getByRole("navigation", { name: "Mobile primary navigation" }).locator("a:visible, span:visible, button:visible");

@@ -84,6 +84,7 @@ model Household {
   members      Member[]
   invitations  Invitation[]
   miniAppConfigurations HouseholdMiniAppConfiguration[]
+  miniAppCommands MiniAppConfigurationCommand[]
   sharedLists  SharedList[]
   sharedListItems SharedListItem[]
   choreAssignments ChoreAssignment[]
@@ -171,6 +172,7 @@ model HouseholdMiniAppConfiguration {
   enabled               Boolean   @default(false)
   settingsSchemaVersion Int       @default(1)
   settings              Json      @default("{}")
+  version               Int       @default(1)
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   household             Household @relation(fields: [householdId], references: [id], onDelete: Restrict)
@@ -178,6 +180,20 @@ model HouseholdMiniAppConfiguration {
   @@unique([householdId, appId])
   @@index([householdId, enabled])
   @@map("household_mini_app_configurations")
+}
+
+model MiniAppConfigurationCommand {
+  commandId       String    @id
+  householdId     String
+  appId           String
+  enabled         Boolean
+  actorMemberId   String
+  configurationId String
+  createdAt       DateTime  @default(now())
+  household       Household @relation(fields: [householdId], references: [id], onDelete: Restrict)
+
+  @@index([householdId, appId, createdAt])
+  @@map("mini_app_configuration_commands")
 }
 
 model Member {

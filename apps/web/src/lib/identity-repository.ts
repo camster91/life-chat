@@ -8,6 +8,7 @@ import { authorize, type BaselineRole, type CapabilityGrant } from "./permission
 
 export class MemberLifecycleError extends Error {}
 export class MiniAppConfigurationError extends Error {}
+export class MiniAppConfigurationConflictError extends MiniAppConfigurationError {}
 
 /**
  * Loads an active household only from membership records linked to the
@@ -194,9 +195,14 @@ export async function setHouseholdMiniAppEnabled(database: PrismaClient, input: 
   actor: { context: ActiveHouseholdContext; grants: readonly CapabilityGrant[] };
   appId: MiniAppId;
   enabled: boolean;
+  expectedVersion: number;
+  commandId: string;
   now: Date;
 }) {
-  return database.$transaction(async (transaction) => {
+  if (input.commandId.trim().length === 0 || input.commandId.length > 200) throw new MiniAppConfigurationError("A bounded command ID is required.");
+  if (!Number.isSafeInteger(input.expectedVersion) || input.expectedVersion < 0) throw new MiniAppConfigurationError("expectedVersion must be a non-negative integer.");
+  try {
+    return await database.$transaction(async (transaction) => {
     const actor = await transaction.member.findFirst({ where: {
       id: input.actor.context.memberId, householdId: input.actor.context.householdId,
       authenticatedSubjectId: input.actor.context.authenticatedSubjectId, lifecycle: "active",
@@ -207,6 +213,18 @@ export async function setHouseholdMiniAppEnabled(database: PrismaClient, input: 
     if (!authorization.allowed) throw new MiniAppConfigurationError("The active member cannot configure apps.");
     const definition = miniAppRegistry.find((candidate) => candidate.id === input.appId);
     if (definition === undefined) throw new MiniAppConfigurationError("The requested mini-app is unknown.");
+
+    const replay = await transaction.miniAppConfigurationCommand.findUnique({ where: { commandId: input.commandId } });
+    if (replay !== null) {
+      const authorizedReplay = replay.householdId === actor.householdId && replay.actorMemberId === actor.id && replay.appId === input.appId && replay.enabled === input.enabled;
+      if (!authorizedReplay) throw new MiniAppConfigurationError("The command cannot cross member, app, or household boundaries.");
+      return transaction.householdMiniAppConfiguration.findUniqueOrThrow({ where: { id: replay.configurationId } });
+    }
+
+    const stored = await transaction.householdMiniAppConfiguration.findUnique({ where: { householdId_appId: { householdId: actor.householdId, appId: input.appId } } });
+    const currentVersion = stored?.version ?? 0;
+    if (currentVersion !== input.expectedVersion) throw new MiniAppConfigurationConflictError("The app configuration changed after it was loaded.");
+    if ((stored?.enabled ?? false) === input.enabled) throw new MiniAppConfigurationConflictError("The app configuration is already in the requested state.");
 
     const configuration = await loadHouseholdMiniAppConfiguration(transaction as PrismaClient, actor.householdId);
     configuration[input.appId] = { enabled: input.enabled, settingsSchemaVersion: definition.settingsSchemaVersion };
@@ -231,13 +249,18 @@ export async function setHouseholdMiniAppEnabled(database: PrismaClient, input: 
     });
     const saved = await transaction.householdMiniAppConfiguration.upsert({
       where: { householdId_appId: { householdId: actor.householdId, appId: input.appId } },
-      create: { householdId: actor.householdId, appId: input.appId, enabled: input.enabled, settingsSchemaVersion: definition.settingsSchemaVersion, settings: {} },
-      update: { enabled: input.enabled, settingsSchemaVersion: definition.settingsSchemaVersion },
+      create: { householdId: actor.householdId, appId: input.appId, enabled: input.enabled, settingsSchemaVersion: definition.settingsSchemaVersion, settings: {}, version: 1 },
+      update: { enabled: input.enabled, settingsSchemaVersion: definition.settingsSchemaVersion, version: { increment: 1 } },
     });
+    await transaction.miniAppConfigurationCommand.create({ data: { commandId: input.commandId, householdId: actor.householdId, appId: input.appId, enabled: input.enabled, actorMemberId: actor.id, configurationId: saved.id } });
     await transaction.auditEvent.create({ data: { id: auditEvent.id, householdId: auditEvent.householdId, actorType: auditEvent.actor.type, actorId: auditEvent.actor.id, action: auditEvent.action, targetType: auditEvent.target.type, targetId: auditEvent.target.id, outcome: auditEvent.outcome, correlationId: auditEvent.correlationId, causationId: auditEvent.causationId, metadata: auditEvent.metadata, occurredAt: new Date(auditEvent.occurredAt) } });
     await transaction.outboxEvent.create({ data: { id: domainEvent.id, householdId: domainEvent.householdId, aggregateType: domainEvent.aggregate.type, aggregateId: domainEvent.aggregate.id, eventType: domainEvent.type, schemaVersion: domainEvent.schemaVersion, correlationId: domainEvent.correlationId, causationId: domainEvent.causationId, references: domainEvent.references, occurredAt: new Date(domainEvent.occurredAt) } });
     return saved;
-  }, { isolationLevel: "Serializable" });
+    }, { isolationLevel: "Serializable" });
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2034") throw new MiniAppConfigurationConflictError("The app configuration changed before it could be saved.");
+    throw error;
+  }
 }
 
 /**
