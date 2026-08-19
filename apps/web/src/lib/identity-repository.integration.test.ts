@@ -7,8 +7,7 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
   it("accepts an invitation once and writes the member, audit, and outbox records together", async () => {
     const { PrismaPg } = await import("@prisma/adapter-pg");
     const { PrismaClient } = await import("../../generated/prisma/client");
-    const { createInvitation } = await import("./invitation-contract");
-    const { acceptHouseholdInvitation } = await import("./identity-repository");
+    const { acceptHouseholdInvitation, issueHouseholdInvitation } = await import("./identity-repository");
     const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
     try {
       const suffix = randomUUID();
@@ -17,8 +16,12 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       const issuerSubject = await database.user.create({ data: { id: `issuer-${suffix}`, name: "Issuer", email: `issuer-${suffix}@example.test` } });
       const invitedSubject = await database.user.create({ data: { id: `invited-${suffix}`, name: "Invited", email: `invited-${suffix}@example.test` } });
       const issuer = await database.member.create({ data: { id: `member-${suffix}`, householdId: household.id, authenticatedSubjectId: issuerSubject.id, displayName: "Issuer", role: "adult", lifecycle: "active" } });
-      const created = createInvitation({ householdId: household.id, issuerMemberId: issuer.id, intendedRole: "child", intendedDisplayName: "Sam", expiresAt: new Date("2026-08-20T12:00:00.000Z"), now });
-      await database.invitation.create({ data: { id: created.invitation.invitationId, householdId: household.id, issuerMemberId: issuer.id, tokenHash: created.invitation.tokenHash, intendedRole: created.invitation.intendedRole, intendedDisplayName: created.invitation.intendedDisplayName, expiresAt: created.invitation.expiresAt } });
+      const created = await issueHouseholdInvitation(database, { actor: { context: { authenticatedSubjectId: issuerSubject.id, memberId: issuer.id, householdId: household.id }, grants: [] }, intendedRole: "child", intendedDisplayName: "Sam", expiresAt: new Date("2026-08-20T12:00:00.000Z"), now });
+      const storedInvitation = await database.invitation.findUniqueOrThrow({ where: { id: created.invitation.invitationId } });
+      expect(storedInvitation.tokenHash).toBe(created.invitation.tokenHash);
+      expect(storedInvitation.tokenHash).not.toContain(created.token);
+      expect(await database.auditEvent.count({ where: { householdId: household.id, action: "identity.invitation.issue" } })).toBe(1);
+      expect(await database.outboxEvent.count({ where: { householdId: household.id, eventType: "identity.invitation-issued.v1" } })).toBe(1);
 
       const accepted = await acceptHouseholdInvitation(database, { token: created.token, subjectId: invitedSubject.id, now });
       const invitation = await database.invitation.findUniqueOrThrow({ where: { id: accepted.invitationId } });

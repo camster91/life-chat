@@ -2,7 +2,7 @@ import type { PrismaClient } from "../../generated/prisma/client";
 import { createAuditEvent, createDomainEvent, newCorrelationId } from "./audit-event";
 import { planFirstOwnerBootstrap } from "./bootstrap-contract";
 import { resolveActiveHouseholdContext, type ActiveHouseholdContext } from "./identity-context";
-import { acceptInvitation, invitationTokenHash } from "./invitation-contract";
+import { acceptInvitation, createInvitation, invitationTokenHash } from "./invitation-contract";
 import { authorize, type BaselineRole, type CapabilityGrant } from "./permission-engine";
 
 export class MemberLifecycleError extends Error {}
@@ -111,6 +111,67 @@ export async function acceptHouseholdInvitation(database: PrismaClient, input: {
       occurredAt: new Date(domainEvent.occurredAt),
     } });
     return accepted;
+  }, { isolationLevel: "Serializable" });
+}
+
+/**
+ * Issues a stored invitation after reloading the issuer from the database.
+ * The returned token is the only raw-token exposure; callers must present it
+ * directly to the intended recipient and must never log or persist it.
+ */
+export async function issueHouseholdInvitation(database: PrismaClient, input: {
+  actor: { context: ActiveHouseholdContext; grants: readonly CapabilityGrant[] };
+  intendedRole: BaselineRole;
+  intendedDisplayName: string;
+  expiresAt: Date;
+  now: Date;
+}) {
+  return database.$transaction(async (transaction) => {
+    const issuer = await transaction.member.findFirst({ where: {
+      id: input.actor.context.memberId, householdId: input.actor.context.householdId,
+      authenticatedSubjectId: input.actor.context.authenticatedSubjectId, lifecycle: "active",
+      OR: [{ expiresAt: null }, { expiresAt: { gt: input.now } }],
+    } });
+    if (issuer === null) throw new MemberLifecycleError("The active member is no longer eligible to issue invitations.");
+    const authorization = authorize({
+      context: input.actor.context, role: issuer.role, grants: input.actor.grants,
+      request: { householdId: issuer.householdId, permission: "member.invite" }, now: input.now,
+    });
+    if (!authorization.allowed) throw new MemberLifecycleError("The active member cannot issue invitations.");
+
+    const created = createInvitation({
+      householdId: issuer.householdId, issuerMemberId: issuer.id, intendedRole: input.intendedRole,
+      intendedDisplayName: input.intendedDisplayName, expiresAt: input.expiresAt, now: input.now,
+    });
+    const correlationId = newCorrelationId();
+    const auditEvent = createAuditEvent({
+      householdId: issuer.householdId, actor: { type: "member", id: issuer.id }, action: "identity.invitation.issue",
+      target: { type: "invitation", id: created.invitation.invitationId }, outcome: "succeeded", correlationId,
+      causationId: null, occurredAt: input.now.toISOString(), metadata: { role: created.invitation.intendedRole },
+    });
+    const domainEvent = createDomainEvent({
+      householdId: issuer.householdId, aggregate: { type: "invitation", id: created.invitation.invitationId },
+      type: "identity.invitation-issued.v1", correlationId, causationId: auditEvent.id, occurredAt: input.now.toISOString(),
+      references: { issuerMemberId: issuer.id },
+    });
+    await transaction.invitation.create({ data: {
+      id: created.invitation.invitationId, householdId: created.invitation.householdId, issuerMemberId: created.invitation.issuerMemberId,
+      tokenHash: created.invitation.tokenHash, intendedRole: created.invitation.intendedRole,
+      intendedDisplayName: created.invitation.intendedDisplayName, expiresAt: created.invitation.expiresAt,
+    } });
+    await transaction.auditEvent.create({ data: {
+      id: auditEvent.id, householdId: auditEvent.householdId, actorType: auditEvent.actor.type, actorId: auditEvent.actor.id,
+      action: auditEvent.action, targetType: auditEvent.target.type, targetId: auditEvent.target.id, outcome: auditEvent.outcome,
+      correlationId: auditEvent.correlationId, causationId: auditEvent.causationId, metadata: auditEvent.metadata,
+      occurredAt: new Date(auditEvent.occurredAt),
+    } });
+    await transaction.outboxEvent.create({ data: {
+      id: domainEvent.id, householdId: domainEvent.householdId, aggregateType: domainEvent.aggregate.type,
+      aggregateId: domainEvent.aggregate.id, eventType: domainEvent.type, schemaVersion: domainEvent.schemaVersion,
+      correlationId: domainEvent.correlationId, causationId: domainEvent.causationId, references: domainEvent.references,
+      occurredAt: new Date(domainEvent.occurredAt),
+    } });
+    return created;
   }, { isolationLevel: "Serializable" });
 }
 

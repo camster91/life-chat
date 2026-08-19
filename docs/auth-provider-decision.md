@@ -81,11 +81,11 @@ Implementation of the first-owner bootstrap, invitation acceptance, and
 recovery delivery is tracked in #53. Until that work is complete, the auth
 foundation deliberately has no route that can create a household account.
 
-The first-owner bootstrap and invitation-acceptance contracts now have durable
-transaction/audit/outbox persistence, including a local PostgreSQL integration
-test for single-use acceptance. A lifecycle command also prevents suspension
-or removal of the final active adult, writes audit/outbox evidence, and has
-local PostgreSQL integration coverage. Invitation issuance, account
-creation/linking through a secure entry flow, local delivery/recovery, guest
-expiry, subject/member unlinking, and production-readiness validation still
-remain before #53 can close.
+The first-owner bootstrap plus invitation issuance/acceptance contracts now
+have durable transaction/audit/outbox persistence, including a local PostgreSQL
+integration test for hashed-token storage and single-use acceptance. A
+lifecycle command also prevents suspension or removal of the final active
+adult, writes audit/outbox evidence, and has local PostgreSQL integration
+coverage. Account creation/linking through a secure entry flow, local
+delivery/recovery, guest expiry, subject/member unlinking, and
+production-readiness validation still remain before #53 can close.
