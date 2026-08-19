@@ -89,3 +89,14 @@ adult, writes audit/outbox evidence, and has local PostgreSQL integration
 coverage. Account creation/linking through a secure entry flow, local
 delivery/recovery, guest expiry, subject/member unlinking, and
 production-readiness validation still remain before #53 can close.
+
+## Account-entry design gate
+
+Do not create Better Auth user/account rows directly from Life Chat code and do
+not temporarily enable public sign-up. The remaining account-entry flow must
+use a Better Auth-supported mechanism that validates a single-use invitation
+before password/session creation and preserves a recoverable failure path if
+either provider or domain persistence fails. Its transaction boundary, CSRF
+handling, token transport, retry behavior, account-link collision policy, and
+local integration proof require a dedicated implementation decision before a
+route is added.
