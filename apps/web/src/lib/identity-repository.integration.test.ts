@@ -83,4 +83,29 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       expect(await database.outboxEvent.count({ where: { householdId: household.id, eventType: "mini-app.enabled.v1" } })).toBe(2);
     } finally { await database.$disconnect(); }
   });
+
+  it("creates replay-safe household-scoped shared lists only when the app is enabled", async () => {
+    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { PrismaClient } = await import("../../generated/prisma/client");
+    const { setHouseholdMiniAppEnabled } = await import("./identity-repository");
+    const { addSharedListItem, createSharedList, SharedListCommandError } = await import("./shared-list-repository");
+    const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
+    try {
+      const suffix = randomUUID();
+      const now = new Date("2026-08-18T12:00:00.000Z");
+      const household = await database.household.create({ data: { id: `lists-household-${suffix}`, name: "Lists" } });
+      const subject = await database.user.create({ data: { id: `lists-subject-${suffix}`, name: "Adult", email: `lists-${suffix}@example.test` } });
+      const member = await database.member.create({ data: { id: `lists-member-${suffix}`, householdId: household.id, authenticatedSubjectId: subject.id, displayName: "Adult", role: "adult", lifecycle: "active" } });
+      const actor = { context: { authenticatedSubjectId: subject.id, memberId: member.id, householdId: household.id }, grants: [] };
+      await expect(createSharedList(database, { actor, title: "Errands", commandId: `list-${suffix}`, now })).rejects.toThrow(SharedListCommandError);
+      await setHouseholdMiniAppEnabled(database, { actor, appId: "shared-lists", enabled: true, now });
+      const list = await createSharedList(database, { actor, title: "Errands", commandId: `list-${suffix}`, now });
+      expect((await createSharedList(database, { actor, title: "Ignored replay", commandId: `list-${suffix}`, now })).id).toBe(list.id);
+      const item = await addSharedListItem(database, { actor, listId: list.id, label: "Buy fruit", commandId: `item-${suffix}`, now });
+      expect((await addSharedListItem(database, { actor, listId: list.id, label: "Ignored replay", commandId: `item-${suffix}`, now })).id).toBe(item.id);
+      expect(await database.sharedListItem.count({ where: { listId: list.id } })).toBe(1);
+      expect(await database.auditEvent.count({ where: { householdId: household.id, action: { startsWith: "shared-list" } } })).toBe(2);
+      expect(await database.outboxEvent.count({ where: { householdId: household.id, eventType: { startsWith: "shared-list" } } })).toBe(2);
+    } finally { await database.$disconnect(); }
+  });
 });

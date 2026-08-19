@@ -82,10 +82,56 @@ model Household {
   members      Member[]
   invitations  Invitation[]
   miniAppConfigurations HouseholdMiniAppConfiguration[]
+  sharedLists  SharedList[]
+  sharedListItems SharedListItem[]
   auditEvents  AuditEvent[]
   outboxEvents OutboxEvent[]
 
   @@map("households")
+}
+
+model SharedList {
+  id        String           @id @default(cuid())
+  householdId String
+  title     String
+  creationCommandId String? @unique
+  version   Int              @default(1)
+  archivedAt DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  household Household        @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  items     SharedListItem[]
+
+  @@index([householdId, updatedAt])
+  @@map("shared_lists")
+}
+
+enum SharedListItemState {
+  open
+  completed
+}
+
+model SharedListItem {
+  id                 String              @id @default(cuid())
+  householdId        String
+  listId             String
+  label              String
+  creationCommandId  String?             @unique
+  position           Int
+  state              SharedListItemState @default(open)
+  version            Int                 @default(1)
+  assignedMemberId   String?
+  completedAt        DateTime?
+  completedByMemberId String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  household          Household           @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  list               SharedList          @relation(fields: [listId], references: [id], onDelete: Restrict)
+
+  @@unique([listId, position])
+  @@index([householdId, state])
+  @@index([assignedMemberId])
+  @@map("shared_list_items")
 }
 
 model HouseholdMiniAppConfiguration {

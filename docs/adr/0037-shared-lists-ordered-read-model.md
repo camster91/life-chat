@@ -2,14 +2,14 @@
 
 ## Status
 
-Accepted for a read-only ordered list view and completion proposal. It does not write, reorder, merge, sync offline, or persist list data.
+Accepted for the ordered read model and an initial persisted create-list/add-item command slice. It does not yet reorder, edit, archive, assign, complete, merge, sync offline, or provide UI.
 
 ## Decision
 
 Shared Lists requires an eligible mini-app and accepts only authorized household-scoped item summaries. It enforces unique non-negative positions, bounded labels, internal deep links, and self-scoped assignment indication. Completion is a confirmation-required proposal, not a state change.
 
-Future writes must derive active context server-side, reauthorize list/item access, validate list version and ordering, resolve offline conflicts as specified in ADR 0007, confirm consequential changes, use idempotency, and persist canonical/audit/domain/outbox events atomically. Groceries is a dependent view and may not bypass these controls.
+The initial create-list/add-item commands derive active context server-side, reauthorize `lists.manage`, check Shared Lists enablement, scope list access to the active household, use serializable transactions and replay-safe command IDs, and persist audit/outbox events. Groceries is a dependent view and may not bypass these controls.
 
 ## Non-goals and verification
 
-No list store, create/edit/reorder/delete command, assignment mutation, offline queue, conflict resolution, export, UI, or notification exists here. Tests cover app gating, ordering, household isolation, safe links, proposal-only completion, and completed-state rejection. Real commands/UI/accessibility validation remain before #29 can close.
+No edit/reorder/archive/delete command, assignment mutation, completion execution, offline queue, conflict resolution, export, UI, or notification exists here. Local PostgreSQL integration tests cover enablement gating, replay-safe creation, and audit/outbox writes. Version-conflict, cross-household command, accessibility, recovery, and normal UI evidence remain before #29 can close.
