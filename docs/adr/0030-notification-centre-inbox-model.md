@@ -2,9 +2,10 @@
 
 ## Status
 
-Accepted for the inbox presentation model plus durable recipient-scoped inbox
-loading and mark-read state. It does not yet schedule, dismiss, send, or
-externally deliver notifications.
+Accepted for the inbox presentation model, durable recipient-scoped inbox
+loading, mark-read state, and local release of due scheduled envelopes. It does
+not yet create schedules from domain events, dismiss, send, or externally
+deliver notifications.
 
 ## Decision
 
@@ -22,9 +23,12 @@ into an external delivery side effect.
 
 ## Non-goals and verification
 
-No preference UI, channel adapter, delivery worker, dismiss command, push/email
-payload, batching, or accessibility UI is included. A local PostgreSQL store,
-recipient-scoped inbox query, and replay-safe mark-read command now exist with
-audit/outbox evidence. Integration tests cover wrong-recipient denial and read
+No preference UI, channel adapter, externally configured worker, dismiss
+command, push/email payload, batching, or accessibility UI is included. A local
+PostgreSQL store, recipient-scoped inbox query, replay-safe mark-read command,
+and bounded due-envelope release operation now exist with audit/outbox
+evidence. Release rechecks recipient household membership, lifecycle, and guest
+expiry; ineligible recipients are cancelled. Integration tests cover eligible
+release, expired-recipient cancellation, wrong-recipient denial, and read
 replay. Real delivery/preferences and browser/screen-reader validation remain
 required before #22 can close.

@@ -28,6 +28,35 @@ export async function loadNotificationInbox(database: PrismaClient, context: Act
   return createNotificationInbox({ context, notifications: records.map(toNotification) });
 }
 
+/** Releases due envelopes to the in-app inbox after rechecking recipient eligibility. */
+export async function releaseDueNotifications(database: PrismaClient, input: { now: Date; limit?: number }) {
+  const limit = input.limit ?? 100;
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new NotificationCommandError("Notification release limit must be between 1 and 100.");
+  return database.$transaction(async (transaction) => {
+    const due = await transaction.notificationEnvelope.findMany({
+      where: { state: "scheduled", deliverAt: { lte: input.now } },
+      include: { recipient: true }, orderBy: { deliverAt: "asc" }, take: limit,
+    });
+    let available = 0;
+    let cancelled = 0;
+    for (const notification of due) {
+      const eligible = notification.recipient.householdId === notification.householdId
+        && notification.recipient.lifecycle === "active"
+        && (notification.recipient.expiresAt === null || notification.recipient.expiresAt > input.now);
+      const nextState = eligible ? "available" as const : "cancelled" as const;
+      const changed = await transaction.notificationEnvelope.updateMany({ where: { id: notification.id, state: "scheduled" }, data: { state: nextState } });
+      if (changed.count !== 1) continue;
+      if (eligible) available += 1; else cancelled += 1;
+      const correlationId = newCorrelationId();
+      const audit = createAuditEvent({ householdId: notification.householdId, actor: { type: "system", id: "notification-release-worker" }, action: eligible ? "notification.available" : "notification.cancel", target: { type: "notification", id: notification.id }, outcome: "succeeded", correlationId, causationId: notification.sourceEventId, occurredAt: input.now.toISOString(), metadata: { reason: eligible ? "deliver-at-reached" : "recipient-ineligible" } });
+      const event = createDomainEvent({ householdId: notification.householdId, aggregate: { type: "notification", id: notification.id }, type: eligible ? "notification.available.v1" : "notification.cancelled.v1", correlationId, causationId: audit.id, occurredAt: input.now.toISOString(), references: { recipientMemberId: notification.recipientMemberId } });
+      await transaction.auditEvent.create({ data: { id: audit.id, householdId: audit.householdId, actorType: audit.actor.type, actorId: audit.actor.id, action: audit.action, targetType: audit.target.type, targetId: audit.target.id, outcome: audit.outcome, correlationId: audit.correlationId, causationId: audit.causationId, metadata: audit.metadata, occurredAt: new Date(audit.occurredAt) } });
+      await transaction.outboxEvent.create({ data: { id: event.id, householdId: event.householdId, aggregateType: event.aggregate.type, aggregateId: event.aggregate.id, eventType: event.type, schemaVersion: event.schemaVersion, correlationId: event.correlationId, causationId: event.causationId, references: event.references, occurredAt: new Date(event.occurredAt) } });
+    }
+    return { available, cancelled };
+  }, { isolationLevel: "Serializable" });
+}
+
 /** Marks only the active recipient's available notification as read. */
 export async function markNotificationRead(database: PrismaClient, input: {
   context: ActiveHouseholdContext; grants: readonly CapabilityGrant[]; notificationId: string; now: Date;
