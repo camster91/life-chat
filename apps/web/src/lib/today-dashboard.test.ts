@@ -15,6 +15,7 @@ describe("Today dashboard", () => {
   it("rejects a cross-household item or unsafe deep link before it becomes dashboard content", () => {
     expect(() => createTodayDashboard({ context, date: "2026-08-18", timeZone: "America/Toronto", items: [{ ...item("1", "Private"), householdId: "household_2" }] })).toThrow("household");
     expect(() => createTodayDashboard({ context, date: "2026-08-18", timeZone: "America/Toronto", items: [{ ...item("1", "Unsafe"), deepLink: "https://elsewhere.example" }] })).toThrow("application-relative");
+    expect(() => createTodayDashboard({ context, date: "2026-08-18", timeZone: "America/Toronto", items: [{ ...item("1", "Unsafe"), deepLink: "//elsewhere.example" }] })).toThrow("application-relative");
   });
 
   it("keeps date-only semantics rather than accepting timestamps", () => {

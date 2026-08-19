@@ -1,3 +1,4 @@
+import { isSafeApplicationPath } from "./application-path";
 import { assertIanaTimeZone, parseDateOnly, type DateOnly, type IanaTimeZone } from "./date-time";
 import type { ActiveHouseholdContext } from "./identity-context";
 
@@ -26,7 +27,7 @@ function assertSafeItem(item: TodayDashboardItem, context: ActiveHouseholdContex
   if (item.id.trim().length === 0 || item.id.length > 200 || item.label.trim().length === 0 || item.label.length > 200) {
     throw new Error("Today item identifiers and labels must be bounded");
   }
-  if (!item.deepLink.startsWith("/")) throw new Error("Today deep links must be application-relative");
+  if (!isSafeApplicationPath(item.deepLink)) throw new Error("Today deep links must be application-relative");
 }
 
 /**

@@ -10,17 +10,22 @@ export class ChoreCompletionError extends Error {}
 export async function completePersistedAssignedChore(database: PrismaClient, input: { context: ActiveHouseholdContext; grants: readonly CapabilityGrant[]; assignmentId: string; commandId: string; now: Date }) {
   if (input.commandId.trim().length === 0 || input.commandId.length > 200) throw new ChoreCompletionError("A bounded command ID is required.");
   return database.$transaction(async (transaction) => {
-    const replay = await transaction.choreAssignment.findUnique({ where: { completionCommandId: input.commandId } });
-    if (replay !== null) {
-      if (replay.householdId !== input.context.householdId) throw new ChoreCompletionError("commandId cannot cross household boundaries.");
-      return replay;
-    }
     const member = await transaction.member.findFirst({ where: { id: input.context.memberId, householdId: input.context.householdId, authenticatedSubjectId: input.context.authenticatedSubjectId, lifecycle: "active", OR: [{ expiresAt: null }, { expiresAt: { gt: input.now } }] } });
     if (member === null) throw new ChoreCompletionError("The active member is no longer eligible.");
     const allowed = authorize({ context: input.context, role: member.role, grants: input.grants, request: { householdId: member.householdId, permission: "chores.complete-assigned" }, now: input.now });
     if (!allowed.allowed) throw new ChoreCompletionError("Chore completion is not authorized.");
     const configuration = await loadHouseholdMiniAppConfiguration(transaction as PrismaClient, member.householdId);
     if (!activationEligibility("chores", configuration).eligible) throw new ChoreCompletionError("Chores is not enabled for this household.");
+    const replay = await transaction.choreAssignment.findUnique({ where: { completionCommandId: input.commandId } });
+    if (replay !== null) {
+      const isAuthorizedReplay = replay.id === input.assignmentId
+        && replay.householdId === member.householdId
+        && replay.assigneeMemberId === member.id
+        && replay.completedByMemberId === member.id
+        && replay.state === "completed";
+      if (!isAuthorizedReplay) throw new ChoreCompletionError("The completion command does not match this assignment and assignee.");
+      return replay;
+    }
     const assignment = await transaction.choreAssignment.findFirst({ where: { id: input.assignmentId, householdId: member.householdId, assigneeMemberId: member.id, state: "assigned" } });
     if (assignment === null) throw new ChoreCompletionError("The assigned chore is not available to complete.");
     const completed = await transaction.choreAssignment.update({ where: { id: assignment.id }, data: { state: "completed", completedAt: input.now, completedByMemberId: member.id, completionCommandId: input.commandId, version: { increment: 1 } } });

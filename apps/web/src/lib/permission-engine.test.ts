@@ -14,6 +14,13 @@ describe("authorize", () => {
     expect(authorize({ context, role: "guest", grants: [], now, request: { householdId: "household-a", permission: "household.read" } })).toEqual({ allowed: false, reason: "missing-permission" });
   });
 
+  it("allows adults and children to complete only an assignment already scoped to themselves", () => {
+    for (const role of ["adult", "child"] as const) {
+      expect(authorize({ context, role, grants: [], now, request: { householdId: context.householdId, permission: "chores.complete-assigned" } })).toEqual({ allowed: true, source: "baseline" });
+    }
+    expect(authorize({ context, role: "guest", grants: [], now, request: { householdId: context.householdId, permission: "chores.complete-assigned" } })).toEqual({ allowed: false, reason: "missing-permission" });
+  });
+
   it("allows only a matching, unexpired scoped grant", () => {
     const grant = { grantId: "grant-a", memberId: "member-a", householdId: "household-a", permission: "profile.read-self" as const, appId: "habits", resourceId: "habit-a", expiresAt: new Date("2026-08-18T12:01:00.000Z") };
     expect(authorize({ context, role: "guest", grants: [grant], now, request: { householdId: "household-a", permission: "profile.read-self", appId: "habits", resourceId: "habit-a" } })).toEqual({ allowed: true, source: "grant" });

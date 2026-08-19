@@ -23,3 +23,8 @@ export function assertIanaTimeZone(timeZone: IanaTimeZone): IanaTimeZone {
   Temporal.ZonedDateTime.from({ year: 2000, month: 1, day: 1, timeZone }, { disambiguation: "reject" });
   return timeZone;
 }
+
+export function dateOnlyAtInstant(input: { instant: string; timeZone: IanaTimeZone }): DateOnly {
+  assertIanaTimeZone(input.timeZone);
+  return Temporal.Instant.from(input.instant).toZonedDateTimeISO(input.timeZone).toPlainDate().toString();
+}

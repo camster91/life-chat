@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { activeMemberCookieName, type AccountContextResponse } from "@/lib/account-context";
-import { getAuth } from "@/lib/auth";
 import { readAuthEnvironment } from "@/lib/auth-environment";
-import { getDatabase } from "@/lib/database";
 import { ActiveContextError, resolveActiveHouseholdContext } from "@/lib/identity-context";
+import { loadSessionMemberships } from "@/lib/server-request-context";
 
 export const dynamic = "force-dynamic";
 
@@ -20,22 +19,6 @@ function setActiveMemberCookie(response: NextResponse, memberId: string) {
     path: "/",
     maxAge: 60 * 60 * 24 * 30,
   });
-}
-
-async function loadSessionMemberships(request: NextRequest) {
-  const session = await getAuth().api.getSession({ headers: request.headers });
-  if (session === null) return null;
-  const now = new Date();
-  const members = await getDatabase().member.findMany({
-    where: {
-      authenticatedSubjectId: session.user.id,
-      lifecycle: "active",
-      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-    },
-    include: { household: { select: { name: true } } },
-    orderBy: [{ household: { name: "asc" } }, { displayName: "asc" }],
-  });
-  return { session, members, now };
 }
 
 function activeResponse(member: { id: string; displayName: string; household: { name: string } }): AccountContextResponse {

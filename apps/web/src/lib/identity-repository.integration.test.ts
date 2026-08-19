@@ -125,7 +125,7 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
     const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
     try {
       const suffix = randomUUID(); const now = new Date("2026-08-18T12:00:00.000Z");
-      const household = await database.household.create({ data: { id: `chores-household-${suffix}`, name: "Chores" } });
+      const household = await database.household.create({ data: { id: `chores-household-${suffix}`, name: "Chores", timeZone: "America/Toronto", locale: "en-CA" } });
       const adultSubject = await database.user.create({ data: { id: `chores-adult-${suffix}`, name: "Adult", email: `chores-adult-${suffix}@example.test` } });
       const childSubject = await database.user.create({ data: { id: `chores-child-${suffix}`, name: "Child", email: `chores-child-${suffix}@example.test` } });
       const adult = await database.member.create({ data: { id: `chores-adult-member-${suffix}`, householdId: household.id, authenticatedSubjectId: adultSubject.id, displayName: "Adult", role: "adult", lifecycle: "active" } });
@@ -136,11 +136,13 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       const assignment = await database.choreAssignment.create({ data: { householdId: household.id, assigneeMemberId: child.id, title: "Feed pet", dueDate: "2026-08-18" } });
       expect(await searchAuthorizedRecords(database, { context: childContext, query: "feed" })).toMatchObject([{ type: "Chore", results: [{ id: assignment.id }] }]);
       expect(await searchAuthorizedRecords(database, { context: adultActor.context, query: "feed" })).toEqual([]);
-      expect(await loadTodayDashboard(database, { context: childContext, date: "2026-08-18", timeZone: "America/Toronto" })).toMatchObject({ items: [{ id: assignment.id }] });
-      expect((await loadTodayDashboard(database, { context: adultActor.context, date: "2026-08-18", timeZone: "America/Toronto" })).items).toEqual([]);
+      expect(household).toMatchObject({ timeZone: "America/Toronto", locale: "en-CA" });
+      expect(await loadTodayDashboard(database, { context: childContext, date: "2026-08-18", timeZone: household.timeZone })).toMatchObject({ items: [{ id: assignment.id }] });
+      expect((await loadTodayDashboard(database, { context: adultActor.context, date: "2026-08-18", timeZone: household.timeZone })).items).toEqual([]);
       await expect(completePersistedAssignedChore(database, { context: adultActor.context, grants: [], assignmentId: assignment.id, commandId: `adult-${suffix}`, now })).rejects.toThrow(ChoreCompletionError);
       const completed = await completePersistedAssignedChore(database, { context: childContext, grants: [], assignmentId: assignment.id, commandId: `child-${suffix}`, now });
       expect((await completePersistedAssignedChore(database, { context: childContext, grants: [], assignmentId: assignment.id, commandId: `child-${suffix}`, now })).id).toBe(completed.id);
+      await expect(completePersistedAssignedChore(database, { context: adultActor.context, grants: [], assignmentId: assignment.id, commandId: `child-${suffix}`, now })).rejects.toThrow(ChoreCompletionError);
       expect(completed).toMatchObject({ state: "completed", completedByMemberId: child.id });
       expect(await database.auditEvent.count({ where: { householdId: household.id, action: "chores.complete" } })).toBe(1);
     } finally { await database.$disconnect(); }

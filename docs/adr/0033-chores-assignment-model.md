@@ -2,28 +2,31 @@
 
 ## Status
 
-Accepted for an assignee-only read model and review-only completion proposal. It
-does not import ChoreChamps data, write a completion, award points, or schedule
-recurrence.
+Accepted for an assignee-only persisted read/detail model and idempotent
+completion command. An authenticated API and normal UI now expose only the
+active assignee's record and allow completion only when current role/capability
+authorization permits it. It does not import ChoreChamps data, award points, or
+schedule recurrence.
 
 ## Decision
 
 Chores starts with generic, active-member assignment summaries. It requires the
 Chores app to be eligible, validates household/member scope and bounded display
 data, preserves optional due dates as date-only values, and returns no other
-member’s assignments in the child-safe/default view. Completion is a
-confirmation-required proposal only; it has no reward or allowance effect.
+member’s assignments in the child-safe/default view. Completion re-derives
+session/household context, reauthorizes the active assignee, uses a bounded
+idempotency key, updates canonical state, and writes audit/outbox evidence in a
+serializable transaction. It has no reward or allowance effect.
 
-Future execution must re-derive context, reauthorize assignment visibility and
-completion policy, revalidate lifecycle/date, use an idempotency key, write
-canonical/audit/domain/outbox events atomically, and apply recipient-specific
-notifications. Adult household-management views, recurrence, reassignment, and
-exception permissions need separate contracts.
+Adult household-management and assignment-creation views, recurrence,
+reassignment, persisted exception grants, and recipient-specific notification
+policy need separate contracts.
 
 ## Non-goals and verification
 
 No ChoreChamps import, child behavior history, points, badges, reward ledger,
-recurrence, reminder, assignment store, completion write, or UI is included.
-Tests cover ordering, app eligibility, member/household isolation, proposal-only
-completion, and completed-state rejection. Real commands/UI and accessibility
-validation remain before #25 can close.
+recurrence, reminder, assignment-creation UI, or adult management view is
+included. Tests cover ordering, app eligibility, member/household isolation,
+replay-safe persisted completion, and completed-state rejection. Runtime API,
+browser, mobile, and assistive-technology validation remain before #25 can
+close.

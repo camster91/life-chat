@@ -50,6 +50,17 @@ p { max-width: 65ch; color: var(--muted); font-size: 1.05rem; line-height: 1.6; 
 .context-options { display: grid; gap: .75rem; }
 .context-options button { display: grid; justify-items: start; text-align: left; }
 .context-options small { font-weight: 500; }
+.today-summary { display: grid; gap: .75rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+.today-summary h3, .today-summary p { margin: 0; }
+.context-date { color: var(--muted); font-size: .85rem; }
+.today-list { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.today-list li { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 1rem; padding: .65rem .75rem; border: 1px solid var(--line); border-radius: .55rem; }
+.today-list a { color: var(--accent); font-weight: 700; }
+.assignment-detail { margin-top: 0; }
+.assignment-detail dl { display: grid; gap: .5rem; margin: 0; }
+.assignment-detail dl div { display: grid; grid-template-columns: 5rem 1fr; gap: .75rem; }
+.assignment-detail dt { color: var(--muted); }
+.assignment-detail dd { margin: 0; font-weight: 700; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 .skip-link { position: fixed; z-index: 3; top: .5rem; left: .5rem; padding: .75rem 1rem; border-radius: .5rem; background: var(--ink); color: #fff; transform: translateY(-150%); }
 .skip-link:focus { transform: translateY(0); }

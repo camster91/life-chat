@@ -2,9 +2,12 @@
 
 ## Status
 
-Accepted for the presentation model plus an initial database-backed read slice
-for the active member's due Chore assignments. It does not create an
-authentication flow, notification, calendar mutation, or AI action.
+Accepted for the presentation model and authenticated database-backed Today
+slice for the active member's due Chore assignments. The API derives the active
+member from the verified session and revalidated active-member cookie, derives
+the calendar date from the stored household IANA timezone, and returns only safe
+summary fields. It does not create a notification, calendar mutation, or AI
+action.
 
 ## Decision
 
@@ -18,12 +21,17 @@ The model rejects cross-household records, non-authorized inputs, malformed
 date-only values, unbounded display data, and external deep links. It does not
 make authorization decisions or fetch data; production callers must derive the
 household context server-side and enforce record visibility before aggregation.
+The implemented caller does so and refuses missing, expired, ambiguous, or
+cross-subject context rather than accepting household/member identifiers from
+the browser.
 
 ## Non-goals and verification
 
-There is no persisted Today feed, priority algorithm, calendar recurrence
-handling, completion action, analytics, or notification delivery. The initial
-query returns only enabled, due-today Chores assigned to the active member;
-database integration proves another household member cannot see them. Follow-up
-work requires broader sources and usability validation, especially
-adult/child/guest, no-provider, offline, and empty/error states.
+There is no persisted Today feed, priority algorithm, calendar recurrence,
+analytics, or notification delivery. The query returns only enabled, due-today
+Chores assigned to the active member and links to a recipient-scoped normal UI
+detail/completion path. Database integration proves another household member
+cannot see or complete the assignment, and unit tests cover timezone date
+boundaries and protocol-relative-link rejection. Runtime session/database,
+browser, physical-device, and assistive-technology validation remain pending,
+as do broader Today sources and offline/stale behavior.

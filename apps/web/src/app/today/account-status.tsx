@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { authClient } from "../../lib/auth-client";
 import type { AccountContextResponse } from "../../lib/account-context";
+import { TodayItems } from "./today-items";
 
 export function AccountStatus() {
   const router = useRouter();
@@ -62,7 +63,8 @@ export function AccountStatus() {
   return <div className="shell-card">
     <p className="eyebrow">Signed in</p>
     <h2>{session.user.name}</h2>
-    <p>Working in <strong>{context.householdName}</strong> as {context.displayName}. Authorized Today data is the next shell integration step.</p>
+    <p>Working in <strong>{context.householdName}</strong> as {context.displayName}.</p>
+    <TodayItems key={context.memberId} memberId={context.memberId} />
     {signOut}
   </div>;
 }

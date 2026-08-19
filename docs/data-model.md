@@ -4,7 +4,7 @@ All entities have opaque IDs, `created_at`, `updated_at`, household scope where 
 
 | Entity | Core fields and relationships |
 | --- | --- |
-| household | Name, IANA timezone policy, locale, status, privacy/data-retention settings; owns household-scoped records. |
+| household | Name, persisted IANA timezone and locale defaults, status, privacy/data-retention settings; owns household-scoped records. The initial database defaults are `Etc/UTC` and `en-CA` until an authorized setup/settings flow changes them. |
 | consent/authorization record | Versioned purpose, data categories, recipient, acting member/adult, policy version, captured/withdrawn timestamps, and safe audit reference; no unnecessary legal proof or content replica. |
 | authenticated subject | Provider-agnostic opaque account identity; has no household role itself and may link to multiple household-local members. |
 | member | Household-local profile linked optionally to one authenticated subject; baseline persona, display profile, lifecycle, expiry, timezone/preferences. A person in several households has separate member records. |

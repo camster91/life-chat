@@ -35,7 +35,6 @@ export interface NotificationInput {
 
 const forbiddenReferenceKey =
   /(password|secret|token|authorization|cookie|session|prompt|message|body|attachment|content|email|phone|card|credential|api[-_ ]?key)/i;
-const unsafeDeepLinkCharacter = /[\\\r\n\u0000]/;
 
 function assertOpaqueIdentifier(name: string, value: string): void {
   if (value.trim().length === 0 || value.length > 200) {
@@ -56,7 +55,7 @@ function assertInstant(value: string): void {
 }
 
 export function isApplicationRelativeDeepLink(value: string): boolean {
-  return value.startsWith("/") && !value.startsWith("//") && !unsafeDeepLinkCharacter.test(value);
+  return isSafeApplicationPath(value);
 }
 
 export function notificationDeduplicationKey(
@@ -120,3 +119,4 @@ export function transitionNotification(
   }
   throw new Error(`Invalid notification transition from ${notification.state} to ${nextState}`);
 }
+import { isSafeApplicationPath } from "./application-path";

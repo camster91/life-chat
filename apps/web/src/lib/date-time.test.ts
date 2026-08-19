@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertIanaTimeZone, localDateTimeToInstant, parseDateOnly } from "./date-time";
+import { assertIanaTimeZone, dateOnlyAtInstant, localDateTimeToInstant, parseDateOnly } from "./date-time";
 
 describe("date and timezone contract", () => {
   it("keeps date-only values free of timezones", () => {
@@ -19,5 +19,10 @@ describe("date and timezone contract", () => {
   it("requires a valid IANA timezone", () => {
     expect(assertIanaTimeZone("America/Toronto")).toBe("America/Toronto");
     expect(() => assertIanaTimeZone("UTC-05:00")).toThrow(RangeError);
+  });
+
+  it("derives the calendar date at an exact instant in the selected IANA timezone", () => {
+    expect(dateOnlyAtInstant({ instant: "2026-08-19T02:00:00Z", timeZone: "America/Toronto" })).toBe("2026-08-18");
+    expect(dateOnlyAtInstant({ instant: "2026-08-19T02:00:00Z", timeZone: "Asia/Tokyo" })).toBe("2026-08-19");
   });
 });

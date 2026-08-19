@@ -1,0 +1,3 @@
+ALTER TABLE "households"
+ADD COLUMN "timeZone" TEXT NOT NULL DEFAULT 'Etc/UTC',
+ADD COLUMN "locale" TEXT NOT NULL DEFAULT 'en-CA';
