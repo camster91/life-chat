@@ -1,4 +1,3 @@
-import "server-only";
 import type { PrismaClient } from "../../generated/prisma/client";
 import { planFirstOwnerBootstrap } from "./bootstrap-contract";
 
