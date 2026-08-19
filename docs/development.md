@@ -18,6 +18,18 @@ pnpm build
 pnpm dev
 ```
 
+## Local runtime configuration
+
+The checked-in `apps/web/.env.example` names the three server-only runtime
+values: `DATABASE_URL`, `BETTER_AUTH_URL`, and `BETTER_AUTH_SECRET`. Copy it to
+`apps/web/.env` and use a disposable local PostgreSQL database before running
+`pnpm --filter @life-chat/web db:generate` or `db:validate`. Never use a VPS,
+production, legacy, or shared database for local generation or tests.
+
+The repository declares an initial Prisma schema but contains no migration. Do
+not create or apply a migration until a disposable local rehearsal and the
+environment/release evidence required by ADR 0018 are in place.
+
 `http://localhost:3000/api/health` intentionally reports only local application readiness.
 
 ## Boundaries

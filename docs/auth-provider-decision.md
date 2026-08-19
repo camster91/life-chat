@@ -35,6 +35,19 @@ and household records.
 | Portability | The adapter, not feature code, owns Better Auth imports. Replacing it must not change household/member, invitation, role, audit, or command contracts. |
 | Local/test mode | Fabricated subjects and disposable databases only; no production credentials or network-dependent test setup. |
 
+## Initial sign-in policy
+
+Use local email/password authentication with an invite-only account-creation
+policy. The public Better Auth sign-up endpoint is disabled. A later invitation
+acceptance command must authorize the invitation transactionally before it can
+create/link an account; it must not enable broad self-registration as a
+shortcut.
+
+The initial password policy is 12–128 characters. Better Auth's local
+credential storage is used; passwords never enter Life Chat domain records or
+logs. Account verification, password-reset delivery, MFA, and passkeys remain
+unimplemented until a self-hosted mail/recovery design is selected and tested.
+
 ## Required acceptance tests for any choice
 
 1. Sign-in yields an opaque subject and no household data without a separately
@@ -61,3 +74,7 @@ sign-in method (password, passkey, or magic link), MFA/recovery UX, email
 delivery, secret manager, transaction/outbox implementation, backup/restore
 operations, legal guardian policy, production domain, or deployment procedure.
 Those remain separate decisions under ADRs 0002, 0011, and 0018.
+
+Implementation of the first-owner bootstrap, invitation acceptance, and
+recovery delivery is tracked in #53. Until that work is complete, the auth
+foundation deliberately has no route that can create a household account.
