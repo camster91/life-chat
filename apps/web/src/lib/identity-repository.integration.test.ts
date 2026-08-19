@@ -112,6 +112,9 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       expect(await database.sharedListItem.count({ where: { listId: list.id } })).toBe(1);
       expect(await database.auditEvent.count({ where: { householdId: household.id, action: { startsWith: "shared-list" } } })).toBe(2);
       expect(await database.outboxEvent.count({ where: { householdId: household.id, eventType: { startsWith: "shared-list" } } })).toBe(2);
+      await database.member.update({ where: { id: member.id }, data: { lifecycle: "suspended" } });
+      await expect(createSharedList(database, { actor, title: "Revoked replay", commandId: `list-${suffix}`, now })).rejects.toThrow(SharedListCommandError);
+      await expect(addSharedListItem(database, { actor, listId: list.id, label: "Revoked replay", commandId: `item-${suffix}`, now })).rejects.toThrow(SharedListCommandError);
     } finally { await database.$disconnect(); }
   });
 

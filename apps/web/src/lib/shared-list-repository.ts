@@ -40,12 +40,12 @@ export async function createSharedList(database: PrismaClient, input: { actor: A
   const title = boundedText(input.title, "title");
   const commandId = boundedCommandId(input.commandId);
   return database.$transaction(async (transaction) => {
+    const member = await authorizeListManagement(transaction as PrismaClient, input.actor, input.now);
     const existing = await transaction.sharedList.findUnique({ where: { creationCommandId: commandId } });
     if (existing !== null) {
-      if (existing.householdId !== input.actor.context.householdId) throw new SharedListCommandError("commandId cannot cross household boundaries.");
+      if (existing.householdId !== member.householdId) throw new SharedListCommandError("commandId cannot cross household boundaries.");
       return existing;
     }
-    const member = await authorizeListManagement(transaction as PrismaClient, input.actor, input.now);
     const correlationId = newCorrelationId();
     const list = await transaction.sharedList.create({ data: { householdId: member.householdId, title, creationCommandId: commandId } });
     const auditEvent = createAuditEvent({ householdId: member.householdId, actor: { type: "member", id: member.id }, action: "shared-list.create", target: { type: "shared-list", id: list.id }, outcome: "succeeded", correlationId, causationId: null, occurredAt: input.now.toISOString(), metadata: {} });
@@ -60,12 +60,12 @@ export async function addSharedListItem(database: PrismaClient, input: { actor: 
   const label = boundedText(input.label, "label");
   const commandId = boundedCommandId(input.commandId);
   return database.$transaction(async (transaction) => {
+    const member = await authorizeListManagement(transaction as PrismaClient, input.actor, input.now);
     const existing = await transaction.sharedListItem.findUnique({ where: { creationCommandId: commandId } });
     if (existing !== null) {
-      if (existing.householdId !== input.actor.context.householdId) throw new SharedListCommandError("commandId cannot cross household boundaries.");
+      if (existing.householdId !== member.householdId || existing.listId !== input.listId) throw new SharedListCommandError("commandId cannot cross list or household boundaries.");
       return existing;
     }
-    const member = await authorizeListManagement(transaction as PrismaClient, input.actor, input.now);
     const list = await transaction.sharedList.findFirst({ where: { id: input.listId, householdId: member.householdId, archivedAt: null } });
     if (list === null) throw new SharedListCommandError("The requested open list is not in the active household.");
     const last = await transaction.sharedListItem.findFirst({ where: { listId: list.id }, orderBy: { position: "desc" } });
