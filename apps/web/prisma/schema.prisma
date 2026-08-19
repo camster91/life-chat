@@ -85,6 +85,7 @@ model Household {
   sharedLists  SharedList[]
   sharedListItems SharedListItem[]
   choreAssignments ChoreAssignment[]
+  notifications NotificationEnvelope[]
   auditEvents  AuditEvent[]
   outboxEvents OutboxEvent[]
 
@@ -189,11 +190,43 @@ model Member {
   authenticatedSubject   User?           @relation(fields: [authenticatedSubjectId], references: [id], onDelete: Restrict)
   issuedInvitations      Invitation[]    @relation("InvitationIssuer")
   acceptedInvitation     Invitation?     @relation("InvitationAcceptedMember")
+  notifications          NotificationEnvelope[]
 
   @@index([householdId])
   @@index([authenticatedSubjectId])
   @@unique([householdId, authenticatedSubjectId])
   @@map("members")
+}
+
+enum NotificationEnvelopeState {
+  scheduled
+  available
+  read
+  dismissed
+  cancelled
+  failed
+}
+
+model NotificationEnvelope {
+  id                String                    @id
+  householdId       String
+  recipientMemberId String
+  templateId        String
+  sourceEventId     String
+  references        Json
+  deduplicationKey  String                    @unique
+  deliverAt         DateTime
+  state             NotificationEnvelopeState @default(scheduled)
+  deepLink          String?
+  readAt            DateTime?
+  dismissedAt       DateTime?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  household         Household                 @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  recipient         Member                    @relation(fields: [recipientMemberId], references: [id], onDelete: Restrict)
+
+  @@index([householdId, recipientMemberId, state, deliverAt])
+  @@map("notification_envelopes")
 }
 
 enum MemberLifecycle {

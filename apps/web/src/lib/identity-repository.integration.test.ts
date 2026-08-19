@@ -145,4 +145,30 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       expect(await database.auditEvent.count({ where: { householdId: household.id, action: "chores.complete" } })).toBe(1);
     } finally { await database.$disconnect(); }
   });
+
+  it("loads and marks read only the active recipient's notification", async () => {
+    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { PrismaClient } = await import("../../generated/prisma/client");
+    const { loadNotificationInbox, markNotificationRead, NotificationCommandError } = await import("./notification-repository");
+    const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
+    try {
+      const suffix = randomUUID(); const now = new Date("2026-08-19T10:00:00.000Z");
+      const household = await database.household.create({ data: { id: `notifications-household-${suffix}`, name: "Notifications" } });
+      const adultSubject = await database.user.create({ data: { id: `notifications-adult-${suffix}`, name: "Adult", email: `notifications-adult-${suffix}@example.test` } });
+      const childSubject = await database.user.create({ data: { id: `notifications-child-${suffix}`, name: "Child", email: `notifications-child-${suffix}@example.test` } });
+      const adult = await database.member.create({ data: { id: `notifications-adult-member-${suffix}`, householdId: household.id, authenticatedSubjectId: adultSubject.id, displayName: "Adult", role: "adult", lifecycle: "active" } });
+      const child = await database.member.create({ data: { id: `notifications-child-member-${suffix}`, householdId: household.id, authenticatedSubjectId: childSubject.id, displayName: "Child", role: "child", lifecycle: "active" } });
+      const adultContext = { authenticatedSubjectId: adultSubject.id, memberId: adult.id, householdId: household.id };
+      const childContext = { authenticatedSubjectId: childSubject.id, memberId: child.id, householdId: household.id };
+      const childNotification = await database.notificationEnvelope.create({ data: { id: `notification-child-${suffix}`, householdId: household.id, recipientMemberId: child.id, templateId: "chore.due", sourceEventId: `event-child-${suffix}`, references: { assignmentId: `assignment-${suffix}` }, deduplicationKey: `dedupe-child-${suffix}`, deliverAt: now, state: "available", deepLink: `/chores/assignments/assignment-${suffix}` } });
+      await database.notificationEnvelope.create({ data: { id: `notification-adult-${suffix}`, householdId: household.id, recipientMemberId: adult.id, templateId: "household.summary", sourceEventId: `event-adult-${suffix}`, references: {}, deduplicationKey: `dedupe-adult-${suffix}`, deliverAt: now, state: "available" } });
+
+      expect(await loadNotificationInbox(database, childContext)).toMatchObject([{ id: childNotification.id }]);
+      await expect(markNotificationRead(database, { context: adultContext, grants: [], notificationId: childNotification.id, now })).rejects.toThrow(NotificationCommandError);
+      await markNotificationRead(database, { context: childContext, grants: [], notificationId: childNotification.id, now });
+      await markNotificationRead(database, { context: childContext, grants: [], notificationId: childNotification.id, now });
+      expect(await database.auditEvent.count({ where: { householdId: household.id, action: "notification.read", targetId: childNotification.id } })).toBe(1);
+      expect(await loadNotificationInbox(database, childContext)).toMatchObject([{ id: childNotification.id, state: "read" }]);
+    } finally { await database.$disconnect(); }
+  });
 });

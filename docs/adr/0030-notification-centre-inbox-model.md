@@ -2,8 +2,9 @@
 
 ## Status
 
-Accepted for a read-only inbox presentation model. It does not schedule,
-deliver, mark read, dismiss, send, or persist notifications.
+Accepted for the inbox presentation model plus durable recipient-scoped inbox
+loading and mark-read state. It does not yet schedule, dismiss, send, or
+externally deliver notifications.
 
 ## Decision
 
@@ -21,8 +22,9 @@ into an external delivery side effect.
 
 ## Non-goals and verification
 
-No preference UI, channel adapter, delivery worker, notification database,
-read/dismiss command, push/email payload, batching, or accessibility UI is
-included. Tests cover presentable-state filtering, ordering, household/recipient
-isolation, and safe links. Real delivery/preferences and browser/screen-reader
-validation remain required before #22 can close.
+No preference UI, channel adapter, delivery worker, dismiss command, push/email
+payload, batching, or accessibility UI is included. A local PostgreSQL store,
+recipient-scoped inbox query, and replay-safe mark-read command now exist with
+audit/outbox evidence. Integration tests cover wrong-recipient denial and read
+replay. Real delivery/preferences and browser/screen-reader validation remain
+required before #22 can close.

@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted for the foundation; delivery adapters and persistence are follow-up work.
+Accepted for the foundation. The in-app envelope store and mark-read command
+are implemented locally; scheduling workers and delivery adapters remain
+follow-up work.
 
 ## Context
 
@@ -45,10 +47,10 @@ canonical records, not a parallel source of truth.
 
 ## Consequences
 
-This establishes a usable inbox before external delivery complexity. It also
+This establishes the durable core of a usable inbox before external delivery complexity. It also
 means product teams must use canonical links and templates instead of placing
 private source content in notification payloads. A later implementation needs
-a durable notification store, transactional outbox worker, preference UI,
+a transactional outbox worker, preference UI,
 provider adapters, retry/backoff policy, and accessibility validation.
 
 ## Non-goals
