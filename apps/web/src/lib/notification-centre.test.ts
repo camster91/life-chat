@@ -14,5 +14,6 @@ describe("notification centre", () => {
     expect(() => createNotificationInbox({ context, notifications: [{ ...notification, householdId: "household_2", state: "available" }] })).toThrow("household");
     expect(() => createNotificationInbox({ context, notifications: [{ ...notification, recipientMemberId: "member_2", state: "available" }] })).toThrow("recipient");
     expect(() => createNotificationInbox({ context, notifications: [{ ...notification, state: "available", deepLink: "https://outside.example" }] })).toThrow("application-relative");
+    expect(() => createNotificationInbox({ context, notifications: [{ ...notification, state: "available", deepLink: "//outside.example" }] })).toThrow("application-relative");
   });
 });

@@ -4,7 +4,7 @@
 
 Accepted for the inbox presentation model, durable recipient-scoped inbox
 loading, mark-read state, and local release of due scheduled envelopes. It does
-not yet create schedules from domain events, dismiss, send, or externally
+not yet define event-to-template selection policy, dismiss, send, or externally
 deliver notifications.
 
 ## Decision
@@ -25,10 +25,11 @@ into an external delivery side effect.
 
 No preference UI, channel adapter, externally configured worker, dismiss
 command, push/email payload, batching, or accessibility UI is included. A local
-PostgreSQL store, recipient-scoped inbox query, replay-safe mark-read command,
-and bounded due-envelope release operation now exist with audit/outbox
-evidence. Release rechecks recipient household membership, lifecycle, and guest
-expiry; ineligible recipients are cancelled. Integration tests cover eligible
-release, expired-recipient cancellation, wrong-recipient denial, and read
-replay. Real delivery/preferences and browser/screen-reader validation remain
-required before #22 can close.
+PostgreSQL store, idempotent same-household event scheduling, recipient-scoped
+inbox query, replay-safe mark-read command, and household-bounded due-envelope
+release operation now exist with audit/outbox evidence. Release rechecks
+recipient household membership, lifecycle, and guest expiry; ineligible
+recipients are cancelled. Integration tests cover scheduling replay,
+cross-household denial, eligible release, expired-recipient cancellation,
+wrong-recipient denial, and read replay. Real delivery/preferences and
+browser/screen-reader validation remain required before #22 can close.

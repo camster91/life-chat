@@ -35,6 +35,13 @@ export interface NotificationInput {
 
 const forbiddenReferenceKey =
   /(password|secret|token|authorization|cookie|session|prompt|message|body|attachment|content|email|phone|card|credential|api[-_ ]?key)/i;
+const unsafeDeepLinkCharacter = /[\\\r\n\u0000]/;
+
+function assertOpaqueIdentifier(name: string, value: string): void {
+  if (value.trim().length === 0 || value.length > 200) {
+    throw new Error(`Notification ${name} must be a bounded opaque identifier`);
+  }
+}
 
 function assertOpaqueReference(name: string, value: string): void {
   if (forbiddenReferenceKey.test(name) || value.length === 0 || value.length > 256) {
@@ -48,16 +55,30 @@ function assertInstant(value: string): void {
   }
 }
 
+export function isApplicationRelativeDeepLink(value: string): boolean {
+  return value.startsWith("/") && !value.startsWith("//") && !unsafeDeepLinkCharacter.test(value);
+}
+
 export function notificationDeduplicationKey(
   sourceEventId: string,
   recipientMemberId: string,
   templateId: string,
 ): string {
-  return `${sourceEventId}:${recipientMemberId}:${templateId}`;
+  return [sourceEventId, recipientMemberId, templateId]
+    .map((value) => `${value.length}:${value}`)
+    .join("|");
 }
 
 export function createNotification(input: NotificationInput): Notification {
+  assertOpaqueIdentifier("id", input.id);
+  assertOpaqueIdentifier("householdId", input.householdId);
+  assertOpaqueIdentifier("recipientMemberId", input.recipientMemberId);
+  assertOpaqueIdentifier("templateId", input.templateId);
+  assertOpaqueIdentifier("sourceEventId", input.sourceEventId);
   assertInstant(input.deliverAt);
+  if (input.deepLink !== undefined && !isApplicationRelativeDeepLink(input.deepLink)) {
+    throw new Error("Notification deep links must be application-relative");
+  }
   for (const [name, value] of Object.entries(input.references ?? {})) {
     assertOpaqueReference(name, value);
   }

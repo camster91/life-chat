@@ -2,8 +2,9 @@
 
 ## Status
 
-Accepted for the foundation. The in-app envelope store, due-envelope release,
-and mark-read command are implemented locally; domain-event scheduling and
+Accepted for the foundation. The in-app envelope store, idempotent scheduling
+from an existing domain event, household-bounded due-envelope release, and
+mark-read command are implemented locally. Event-to-template policy and
 delivery adapters remain follow-up work.
 
 ## Context
@@ -26,9 +27,11 @@ canonical records, not a parallel source of truth.
 - `scheduled`, `available`, `read`, `dismissed`, `cancelled`, and `failed` are
   distinct states. A recipient may read or dismiss only their own available
   notification. Canonical-record changes can cancel a pending notification.
-- Creation is driven by domain events through a future transactional outbox.
-  The source event ID plus recipient and template forms the deduplication key;
-  retrying delivery must not create another inbox notification.
+- Creation is driven by domain events through the transactional outbox. The
+  local scheduling operation requires an existing same-household source event
+  and an eligible recipient. The source event ID plus recipient and template
+  forms the deduplication key; retrying creation must not create another inbox
+  notification or duplicate audit/outbox evidence.
 - Recipient selection happens on the server and requires current household
   context plus the source-domain permission. Before inbox presentation or an
   external delivery, eligibility is rechecked; removed, expired, or no-longer
@@ -50,8 +53,9 @@ canonical records, not a parallel source of truth.
 This establishes the durable core of a usable inbox before external delivery complexity. It also
 means product teams must use canonical links and templates instead of placing
 private source content in notification payloads. A later implementation needs
-domain-event envelope creation, an externally configured scheduler, preference
-UI, provider adapters, retry/backoff policy, and accessibility validation.
+event-to-template and recipient-selection policy, an externally configured
+scheduler, preference UI, provider adapters, retry/backoff policy, and
+accessibility validation.
 
 ## Non-goals
 

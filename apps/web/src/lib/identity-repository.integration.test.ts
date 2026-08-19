@@ -146,6 +146,29 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
     } finally { await database.$disconnect(); }
   });
 
+  it("schedules one notification only for an eligible same-household recipient", async () => {
+    const { PrismaPg } = await import("@prisma/adapter-pg");
+    const { PrismaClient } = await import("../../generated/prisma/client");
+    const { scheduleNotificationEnvelope, NotificationCommandError } = await import("./notification-repository");
+    const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
+    try {
+      const suffix = randomUUID(); const now = new Date("2026-08-19T10:00:00.000Z");
+      const household = await database.household.create({ data: { id: `notification-schedule-household-${suffix}`, name: "Schedule notifications" } });
+      const otherHousehold = await database.household.create({ data: { id: `notification-schedule-other-${suffix}`, name: "Other household" } });
+      const recipient = await database.member.create({ data: { id: `notification-schedule-member-${suffix}`, householdId: household.id, displayName: "Recipient", role: "child", lifecycle: "active" } });
+      const otherRecipient = await database.member.create({ data: { id: `notification-schedule-other-member-${suffix}`, householdId: otherHousehold.id, displayName: "Other", role: "child", lifecycle: "active" } });
+      const sourceEvent = await database.outboxEvent.create({ data: { id: `notification-source-event-${suffix}`, householdId: household.id, aggregateType: "chore-assignment", aggregateId: `assignment-${suffix}`, eventType: "chore.assigned.v1", schemaVersion: 1, correlationId: `notification-source-correlation-${suffix}`, references: { assigneeMemberId: recipient.id }, occurredAt: now } });
+      const command = { householdId: household.id, recipientMemberId: recipient.id, templateId: "chore.assigned", sourceEventId: sourceEvent.id, references: { assignmentId: `assignment-${suffix}` }, deliverAt: new Date("2026-08-20T10:00:00.000Z"), deepLink: `/chores/assignments/assignment-${suffix}`, now };
+
+      const created = await scheduleNotificationEnvelope(database, command);
+      expect((await scheduleNotificationEnvelope(database, command)).id).toBe(created.id);
+      expect(await database.notificationEnvelope.count({ where: { deduplicationKey: created.deduplicationKey } })).toBe(1);
+      expect(await database.auditEvent.count({ where: { householdId: household.id, action: "notification.schedule", targetId: created.id } })).toBe(1);
+      expect(await database.outboxEvent.count({ where: { householdId: household.id, eventType: "notification.scheduled.v1", aggregateId: created.id } })).toBe(1);
+      await expect(scheduleNotificationEnvelope(database, { ...command, recipientMemberId: otherRecipient.id })).rejects.toThrow(NotificationCommandError);
+    } finally { await database.$disconnect(); }
+  });
+
   it("loads and marks read only the active recipient's notification", async () => {
     const { PrismaPg } = await import("@prisma/adapter-pg");
     const { PrismaClient } = await import("../../generated/prisma/client");
@@ -166,7 +189,7 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       await database.notificationEnvelope.create({ data: { id: `notification-adult-${suffix}`, householdId: household.id, recipientMemberId: adult.id, templateId: "household.summary", sourceEventId: `event-adult-${suffix}`, references: {}, deduplicationKey: `dedupe-adult-${suffix}`, deliverAt: now, state: "available" } });
 
       expect(await loadNotificationInbox(database, childContext)).toEqual([]);
-      expect(await releaseDueNotifications(database, { now })).toEqual({ available: 1, cancelled: 1 });
+      expect(await releaseDueNotifications(database, { householdId: household.id, now })).toEqual({ available: 1, cancelled: 1 });
       expect(await database.notificationEnvelope.findUniqueOrThrow({ where: { id: expiredGuestNotification.id }, select: { state: true } })).toEqual({ state: "cancelled" });
       expect(await loadNotificationInbox(database, childContext)).toMatchObject([{ id: childNotification.id }]);
       await expect(markNotificationRead(database, { context: adultContext, grants: [], notificationId: childNotification.id, now })).rejects.toThrow(NotificationCommandError);

@@ -24,6 +24,9 @@ describe("notification contract", () => {
     expect(notificationDeduplicationKey("event_1", "member_1", "task.due")).toBe(
       notification.deduplicationKey,
     );
+    expect(notificationDeduplicationKey("a:b", "c", "d")).not.toBe(
+      notificationDeduplicationKey("a", "b:c", "d"),
+    );
     expect(Object.isFrozen(notification.references)).toBe(true);
   });
 
@@ -33,6 +36,13 @@ describe("notification contract", () => {
     );
     expect(() => createNotification({ ...input, deliverAt: "tomorrow" })).toThrow(
       "exact instant",
+    );
+    expect(() => createNotification({ ...input, templateId: "" })).toThrow("bounded opaque");
+    expect(() => createNotification({ ...input, deepLink: "https://outside.example" })).toThrow(
+      "application-relative",
+    );
+    expect(() => createNotification({ ...input, deepLink: "//outside.example" })).toThrow(
+      "application-relative",
     );
   });
 
