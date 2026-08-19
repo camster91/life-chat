@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted for a presentation-only foundation. It does not create a data query,
+Accepted for the presentation model plus an initial database-backed read slice
+for the active member's due Chore assignments. It does not create an
 authentication flow, notification, calendar mutation, or AI action.
 
 ## Decision
@@ -20,9 +21,9 @@ household context server-side and enforce record visibility before aggregation.
 
 ## Non-goals and verification
 
-There is no persisted Today feed, date query, priority algorithm, calendar
-recurrence handling, completion action, search, analytics, or notification
-delivery. Follow-up work requires database-backed authorization tests and
-usability validation, especially adult/child/guest, no-provider, offline, and
-empty/error states. Unit tests cover date-only semantics, calm item cap,
-household isolation, and safe deep links.
+There is no persisted Today feed, priority algorithm, calendar recurrence
+handling, completion action, analytics, or notification delivery. The initial
+query returns only enabled, due-today Chores assigned to the active member;
+database integration proves another household member cannot see them. Follow-up
+work requires broader sources and usability validation, especially
+adult/child/guest, no-provider, offline, and empty/error states.

@@ -2,8 +2,9 @@
 
 ## Status
 
-Accepted for a safe, presentation-only result model. It does not create an
-index, query storage, provider, analytics event, or data access path.
+Accepted for a safe result model plus an initial database-backed retrieval
+slice for the active member's Chore assignments. It does not create an index,
+semantic provider, analytics event, or broad cross-app data access path.
 
 ## Decision
 
@@ -21,8 +22,9 @@ provider by default.
 
 ## Non-goals and verification
 
-There is no index schema, database query, semantic/vector provider, attachment
-text extraction, conversation search, logging/analytics, pagination, ranking,
-or search route. Tests cover grouping, disabled-app omission, household
-isolation, safe links, and bounded query validation. Server retrieval/indexing
-and browser/screen-reader validation remain required before #21 can close.
+There is no index schema, semantic/vector provider, attachment text extraction,
+conversation search, logging/analytics, pagination, ranking, or search route.
+The first retrieval service queries only enabled Chores assigned to the active
+member; database integration proves another household member cannot see them.
+Broader indexing/visibility policies and browser/screen-reader validation remain
+required before #21 can close.

@@ -120,6 +120,8 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
     const { PrismaClient } = await import("../../generated/prisma/client");
     const { setHouseholdMiniAppEnabled } = await import("./identity-repository");
     const { completePersistedAssignedChore, ChoreCompletionError } = await import("./chore-repository");
+    const { searchAuthorizedRecords } = await import("./global-search-repository");
+    const { loadTodayDashboard } = await import("./today-dashboard-repository");
     const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
     try {
       const suffix = randomUUID(); const now = new Date("2026-08-18T12:00:00.000Z");
@@ -132,6 +134,10 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       const childContext = { authenticatedSubjectId: childSubject.id, memberId: child.id, householdId: household.id };
       await setHouseholdMiniAppEnabled(database, { actor: adultActor, appId: "chores", enabled: true, now });
       const assignment = await database.choreAssignment.create({ data: { householdId: household.id, assigneeMemberId: child.id, title: "Feed pet", dueDate: "2026-08-18" } });
+      expect(await searchAuthorizedRecords(database, { context: childContext, query: "feed" })).toMatchObject([{ type: "Chore", results: [{ id: assignment.id }] }]);
+      expect(await searchAuthorizedRecords(database, { context: adultActor.context, query: "feed" })).toEqual([]);
+      expect(await loadTodayDashboard(database, { context: childContext, date: "2026-08-18", timeZone: "America/Toronto" })).toMatchObject({ items: [{ id: assignment.id }] });
+      expect((await loadTodayDashboard(database, { context: adultActor.context, date: "2026-08-18", timeZone: "America/Toronto" })).items).toEqual([]);
       await expect(completePersistedAssignedChore(database, { context: adultActor.context, grants: [], assignmentId: assignment.id, commandId: `adult-${suffix}`, now })).rejects.toThrow(ChoreCompletionError);
       const completed = await completePersistedAssignedChore(database, { context: childContext, grants: [], assignmentId: assignment.id, commandId: `child-${suffix}`, now });
       expect((await completePersistedAssignedChore(database, { context: childContext, grants: [], assignmentId: assignment.id, commandId: `child-${suffix}`, now })).id).toBe(completed.id);
