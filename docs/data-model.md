@@ -9,6 +9,7 @@ All entities have opaque IDs, `created_at`, `updated_at`, household scope where 
 | authenticated subject | Provider-agnostic opaque account identity; has no household role itself and may link to multiple household-local members. |
 | member | Household-local profile linked optionally to one authenticated subject; baseline persona, display profile, lifecycle, expiry, timezone/preferences. A person in several households has separate member records. |
 | role | Named baseline persona (`adult`, `child`, `guest`) plus capability set and policy version. |
+| invitation | Household-scoped, issuer-authorized, single-use, expiring account/member invitation. Stores an opaque token hash and safe intended membership metadata; raw invitation secrets are delivery-only and never persisted or audited. |
 | mini-app configuration | Household, app identifier/version, enabled state, settings, rollout state, and per-member visibility overrides. |
 | task/action | App-owned or shared actionable item; owner/assignees, status, due/schedule, visibility, source, and completion/audit links. |
 | calendar item | All-day date range or local timed range plus IANA timezone and derived instant, participants, recurrence, visibility, reminders, source link, and conflict state. |

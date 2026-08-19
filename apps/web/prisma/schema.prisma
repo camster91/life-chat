@@ -10,16 +10,17 @@ datasource db {
 // Better Auth records identify an account only. Household authority belongs to
 // Member and is always resolved separately on the server.
 model User {
-  id            String    @id
-  name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  sessions      Session[]
-  accounts      Account[]
-  members       Member[]
+  id                  String       @id
+  name                String
+  email               String       @unique
+  emailVerified       Boolean      @default(false)
+  image               String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  sessions            Session[]
+  accounts            Account[]
+  members             Member[]
+  acceptedInvitations Invitation[]
 
   @@map("auth_users")
 }
@@ -74,11 +75,12 @@ model Verification {
 }
 
 model Household {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  members   Member[]
+  id          String       @id @default(cuid())
+  name        String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  members     Member[]
+  invitations Invitation[]
 
   @@map("households")
 }
@@ -88,12 +90,15 @@ model Member {
   householdId            String
   authenticatedSubjectId String?
   displayName            String
+  role                   MemberRole
   lifecycle              MemberLifecycle @default(invited)
   expiresAt              DateTime?
   createdAt              DateTime        @default(now())
   updatedAt              DateTime        @updatedAt
   household              Household       @relation(fields: [householdId], references: [id], onDelete: Restrict)
   authenticatedSubject   User?           @relation(fields: [authenticatedSubjectId], references: [id], onDelete: Restrict)
+  issuedInvitations      Invitation[]    @relation("InvitationIssuer")
+  acceptedInvitation     Invitation?     @relation("InvitationAcceptedMember")
 
   @@index([householdId])
   @@index([authenticatedSubjectId])
@@ -105,4 +110,34 @@ enum MemberLifecycle {
   active
   suspended
   removed
+}
+
+enum MemberRole {
+  adult
+  child
+  guest
+}
+
+model Invitation {
+  id                  String     @id @default(cuid())
+  householdId         String
+  issuerMemberId      String
+  tokenHash           String     @unique
+  intendedRole        MemberRole
+  intendedDisplayName String
+  expiresAt           DateTime
+  acceptedAt          DateTime?
+  acceptedSubjectId   String?
+  acceptedMemberId    String?    @unique
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  household           Household  @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  issuer              Member     @relation("InvitationIssuer", fields: [issuerMemberId], references: [id], onDelete: Restrict)
+  acceptedSubject     User?      @relation(fields: [acceptedSubjectId], references: [id], onDelete: Restrict)
+  acceptedMember      Member?    @relation("InvitationAcceptedMember", fields: [acceptedMemberId], references: [id], onDelete: Restrict)
+
+  @@index([householdId, expiresAt])
+  @@index([issuerMemberId])
+  @@index([acceptedSubjectId])
+  @@map("invitations")
 }

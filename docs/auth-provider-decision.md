@@ -78,3 +78,8 @@ Those remain separate decisions under ADRs 0002, 0011, and 0018.
 Implementation of the first-owner bootstrap, invitation acceptance, and
 recovery delivery is tracked in #53. Until that work is complete, the auth
 foundation deliberately has no route that can create a household account.
+
+The initial invitation contract is implemented as a server-domain contract and
+schema declaration only. Durable transaction/audit/outbox persistence, a
+first-owner bootstrap, local delivery/recovery, and PostgreSQL integration
+coverage remain required before #53 can close.
