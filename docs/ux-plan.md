@@ -87,7 +87,10 @@ The recommended direction is the starting hypothesis, not a final brand. No inve
 
 ## Design-system plan
 
-After selecting a direction, document reusable tokens and components before building feature-specific screens.
+The provisional reusable contract is in
+[design/design-system-foundations.md](design/design-system-foundations.md). It
+supports implementation and testing without claiming that the strong-fit brand
+direction has been selected before concept testing.
 
 | Layer | Initial deliverables |
 | --- | --- |
