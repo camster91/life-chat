@@ -172,7 +172,7 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
   it("loads and marks read only the active recipient's notification", async () => {
     const { PrismaPg } = await import("@prisma/adapter-pg");
     const { PrismaClient } = await import("../../generated/prisma/client");
-    const { loadNotificationInbox, markNotificationRead, releaseDueNotifications, NotificationCommandError } = await import("./notification-repository");
+    const { dismissNotification, loadNotificationInbox, markNotificationRead, releaseDueNotifications, NotificationCommandError } = await import("./notification-repository");
     const database = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl! }) });
     try {
       const suffix = randomUUID(); const now = new Date("2026-08-19T10:00:00.000Z");
@@ -185,18 +185,23 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       const adultContext = { authenticatedSubjectId: adultSubject.id, memberId: adult.id, householdId: household.id };
       const childContext = { authenticatedSubjectId: childSubject.id, memberId: child.id, householdId: household.id };
       const childNotification = await database.notificationEnvelope.create({ data: { id: `notification-child-${suffix}`, householdId: household.id, recipientMemberId: child.id, templateId: "chore.due", sourceEventId: `event-child-${suffix}`, references: { assignmentId: `assignment-${suffix}` }, deduplicationKey: `dedupe-child-${suffix}`, deliverAt: now, state: "scheduled", deepLink: `/chores/assignments/assignment-${suffix}` } });
+      const dismissibleNotification = await database.notificationEnvelope.create({ data: { id: `notification-dismiss-${suffix}`, householdId: household.id, recipientMemberId: child.id, templateId: "chore.reminder", sourceEventId: `event-dismiss-${suffix}`, references: { assignmentId: `assignment-${suffix}` }, deduplicationKey: `dedupe-dismiss-${suffix}`, deliverAt: now, state: "available" } });
       const expiredGuestNotification = await database.notificationEnvelope.create({ data: { id: `notification-guest-${suffix}`, householdId: household.id, recipientMemberId: expiredGuest.id, templateId: "household.summary", sourceEventId: `event-guest-${suffix}`, references: {}, deduplicationKey: `dedupe-guest-${suffix}`, deliverAt: now, state: "scheduled" } });
       await database.notificationEnvelope.create({ data: { id: `notification-adult-${suffix}`, householdId: household.id, recipientMemberId: adult.id, templateId: "household.summary", sourceEventId: `event-adult-${suffix}`, references: {}, deduplicationKey: `dedupe-adult-${suffix}`, deliverAt: now, state: "available" } });
 
-      expect(await loadNotificationInbox(database, childContext)).toEqual([]);
+      expect(await loadNotificationInbox(database, childContext)).toMatchObject([{ id: dismissibleNotification.id, state: "available" }]);
       expect(await releaseDueNotifications(database, { householdId: household.id, now })).toEqual({ available: 1, cancelled: 1 });
       expect(await database.notificationEnvelope.findUniqueOrThrow({ where: { id: expiredGuestNotification.id }, select: { state: true } })).toEqual({ state: "cancelled" });
-      expect(await loadNotificationInbox(database, childContext)).toMatchObject([{ id: childNotification.id }]);
+      expect((await loadNotificationInbox(database, childContext)).some((notification) => notification.id === childNotification.id)).toBe(true);
       await expect(markNotificationRead(database, { context: adultContext, grants: [], notificationId: childNotification.id, now })).rejects.toThrow(NotificationCommandError);
       await markNotificationRead(database, { context: childContext, grants: [], notificationId: childNotification.id, now });
       await markNotificationRead(database, { context: childContext, grants: [], notificationId: childNotification.id, now });
+      await dismissNotification(database, { context: childContext, grants: [], notificationId: dismissibleNotification.id, now });
+      await dismissNotification(database, { context: childContext, grants: [], notificationId: dismissibleNotification.id, now });
       expect(await database.auditEvent.count({ where: { householdId: household.id, action: "notification.read", targetId: childNotification.id } })).toBe(1);
+      expect(await database.auditEvent.count({ where: { householdId: household.id, action: "notification.dismiss", targetId: dismissibleNotification.id } })).toBe(1);
       expect(await loadNotificationInbox(database, childContext)).toMatchObject([{ id: childNotification.id, state: "read" }]);
+      expect((await loadNotificationInbox(database, childContext)).some((notification) => notification.id === dismissibleNotification.id)).toBe(false);
     } finally { await database.$disconnect(); }
   });
 });
