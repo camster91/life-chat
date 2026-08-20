@@ -2,8 +2,10 @@
 
 ## Status
 
-Accepted for a read-only settings navigation model. It does not persist a
-profile, preference, household policy, export, or AI provider configuration.
+Accepted for an authenticated, read-only settings route based on the capability
+catalogue. It does not persist a profile, household policy, export, or AI
+provider configuration. Notification preferences remain in their dedicated
+normal UI.
 
 ## Decision
 
@@ -23,6 +25,9 @@ subject to its own confirmed/recovery-safe workflow.
 ## Non-goals and verification
 
 This adds no form, setting store, secret store, export package, provider call,
-audit write, or client-side authorization. Tests cover adult/child/guest
-catalogue boundaries. Route UI, preference persistence, command integrations,
-and browser/screen-reader validation remain required before #23 can close.
+audit write, or client-side authorization. The server derives the active
+context before returning the catalogue, and the normal UI labels unavailable
+controls instead of exposing dead actions. Tests cover adult/child/guest
+catalogue boundaries. Profile/household commands, export/recovery, provider
+configuration, and browser/screen-reader validation remain required before #23
+can close.
