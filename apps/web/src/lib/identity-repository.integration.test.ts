@@ -202,7 +202,7 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
     const { createPostgresAdapter } = await import("./postgres-adapter");
     const { PrismaClient } = await import("../../generated/prisma/client");
     const { setHouseholdMiniAppEnabled } = await import("./identity-repository");
-    const { completePersistedAssignedChore, ChoreCompletionError } = await import("./chore-repository");
+    const { completePersistedAssignedChore, createPersistedChoreAssignment, loadPersistedChoreAssignments, ChoreCompletionError } = await import("./chore-repository");
     const { searchAuthorizedRecords } = await import("./global-search-repository");
     const { loadTodayDashboard } = await import("./today-dashboard-repository");
     const database = new PrismaClient({ adapter: createPostgresAdapter(databaseUrl!) });
@@ -216,7 +216,11 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       const adultActor = { context: { authenticatedSubjectId: adultSubject.id, memberId: adult.id, householdId: household.id }, grants: [] };
       const childContext = { authenticatedSubjectId: childSubject.id, memberId: child.id, householdId: household.id };
       await setHouseholdMiniAppEnabled(database, { actor: adultActor, appId: "chores", enabled: true, expectedVersion: 0, commandId: `chores-enable-${suffix}`, now });
-      const assignment = await database.choreAssignment.create({ data: { householdId: household.id, assigneeMemberId: child.id, title: "Feed pet", dueDate: "2026-08-18" } });
+      const assignment = await createPersistedChoreAssignment(database, { actor: adultActor, assigneeMemberId: child.id, title: "Feed pet", dueDate: "2026-08-18", commandId: `chores-create-${suffix}`, now });
+      expect((await createPersistedChoreAssignment(database, { actor: adultActor, assigneeMemberId: child.id, title: "Feed pet", dueDate: "2026-08-18", commandId: `chores-create-${suffix}`, now })).id).toBe(assignment.id);
+      await expect(createPersistedChoreAssignment(database, { actor: { context: childContext, grants: [] }, assigneeMemberId: child.id, title: "Blocked", dueDate: null, commandId: `chores-child-${suffix}`, now })).rejects.toThrow(ChoreCompletionError);
+      expect((await loadPersistedChoreAssignments(database, { actor: adultActor, now })).assignments.map((item) => item.id)).toContain(assignment.id);
+      expect((await loadPersistedChoreAssignments(database, { actor: { context: childContext, grants: [] }, now })).assignments.map((item) => item.id)).toEqual([assignment.id]);
       expect(await searchAuthorizedRecords(database, { context: childContext, grants: [], query: "feed", now })).toMatchObject([{ type: "Chore", results: [{ id: assignment.id }] }]);
       expect(await searchAuthorizedRecords(database, { context: adultActor.context, grants: [], query: "feed", now })).toEqual([]);
       expect(household).toMatchObject({ timeZone: "America/Toronto", locale: "en-CA" });
@@ -228,6 +232,7 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       await expect(completePersistedAssignedChore(database, { context: adultActor.context, grants: [], assignmentId: assignment.id, commandId: `child-${suffix}`, now })).rejects.toThrow(ChoreCompletionError);
       expect(completed).toMatchObject({ state: "completed", completedByMemberId: child.id });
       expect(await database.auditEvent.count({ where: { householdId: household.id, action: "chores.complete" } })).toBe(1);
+      expect(await database.auditEvent.count({ where: { householdId: household.id, action: "chores.assign" } })).toBe(1);
     } finally { await database.$disconnect(); }
   });
 

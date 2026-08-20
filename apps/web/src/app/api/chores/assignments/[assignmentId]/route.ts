@@ -3,6 +3,8 @@ import { readAuthEnvironment } from "@/lib/auth-environment";
 import type { ChoreAssignmentApiResponse } from "@/lib/chore-assignment-api";
 import { ChoreCompletionError, completePersistedAssignedChore } from "@/lib/chore-repository";
 import { getDatabase } from "@/lib/database";
+import { loadHouseholdMiniAppConfiguration } from "@/lib/identity-repository";
+import { activationEligibility } from "@/lib/mini-app-registry";
 import { authorize } from "@/lib/permission-engine";
 import { RequestContextError, resolveRequestContext } from "@/lib/server-request-context";
 
@@ -24,16 +26,19 @@ export async function GET(request: NextRequest, route: { params: Promise<{ assig
     const assignment = await getDatabase().choreAssignment.findFirst({ where: {
       id: assignmentId,
       householdId: resolved.context.householdId,
-      assigneeMemberId: resolved.context.memberId,
     } });
     if (assignment === null) return noStore({ error: "The assignment was not found." }, 404);
-    const canComplete = authorize({
+    const now = new Date();
+    const canComplete = assignment.assigneeMemberId === resolved.context.memberId && authorize({
       context: resolved.context,
       role: resolved.member.role,
       grants: [],
       request: { householdId: resolved.context.householdId, permission: "chores.complete-assigned" },
-      now: new Date(),
+      now,
     }).allowed;
+    const canManage = authorize({ context: resolved.context, role: resolved.member.role, grants: [], request: { householdId: resolved.context.householdId, permission: "chores.manage", appId: "chores" }, now }).allowed;
+    const configuration = await loadHouseholdMiniAppConfiguration(getDatabase(), resolved.context.householdId);
+    if (!activationEligibility("chores", configuration).eligible || (!canComplete && !canManage)) return noStore({ error: "The assignment was not found." }, 404);
     return noStore({
       id: assignment.id,
       title: assignment.title,

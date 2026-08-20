@@ -150,6 +150,7 @@ model ChoreAssignment {
   dueDate               String?
   state                 ChoreAssignmentState @default(assigned)
   version               Int                  @default(1)
+  creationCommandId     String?              @unique
   completionCommandId   String?              @unique
   completedAt           DateTime?
   completedByMemberId   String?

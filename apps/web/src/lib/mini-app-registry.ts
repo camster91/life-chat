@@ -22,7 +22,7 @@ export type HouseholdMiniAppConfiguration = Record<MiniAppId, { enabled: boolean
 
 export const miniAppRegistry: readonly MiniAppDefinition[] = [
   { id: "habits", version: 1, label: "Habits", dependsOn: [], declaredCapabilities: ["habits.record"], settingsSchemaVersion: 1 },
-  { id: "chores", version: 1, label: "Chores", dependsOn: [], declaredCapabilities: ["chores.complete-assigned"], settingsSchemaVersion: 1 },
+  { id: "chores", version: 1, label: "Chores", dependsOn: [], declaredCapabilities: ["chores.complete-assigned", "chores.manage"], settingsSchemaVersion: 1 },
   { id: "rewards", version: 1, label: "Rewards and allowance", dependsOn: ["chores"], declaredCapabilities: ["rewards.view"], settingsSchemaVersion: 1 },
   { id: "meals", version: 1, label: "Meals", dependsOn: [], declaredCapabilities: ["meals.plan"], settingsSchemaVersion: 1 },
   { id: "groceries", version: 1, label: "Groceries", dependsOn: ["shared-lists"], declaredCapabilities: ["groceries.manage"], settingsSchemaVersion: 1 },

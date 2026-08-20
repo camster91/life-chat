@@ -21,6 +21,13 @@ describe("authorize", () => {
     expect(authorize({ context, role: "guest", grants: [], now, request: { householdId: context.householdId, permission: "chores.complete-assigned" } })).toEqual({ allowed: false, reason: "missing-permission" });
   });
 
+  it("reserves chore assignment management for adults", () => {
+    expect(authorize({ context, role: "adult", grants: [], now, request: { householdId: context.householdId, permission: "chores.manage", appId: "chores" } })).toEqual({ allowed: true, source: "baseline" });
+    for (const role of ["child", "guest"] as const) {
+      expect(authorize({ context, role, grants: [], now, request: { householdId: context.householdId, permission: "chores.manage", appId: "chores" } })).toEqual({ allowed: false, reason: "missing-permission" });
+    }
+  });
+
   it("lets children read shared lists without granting list management", () => {
     expect(authorize({ context, role: "child", grants: [], now, request: { householdId: context.householdId, permission: "lists.read", appId: "shared-lists" } })).toEqual({ allowed: true, source: "baseline" });
     expect(authorize({ context, role: "child", grants: [], now, request: { householdId: context.householdId, permission: "lists.complete", appId: "shared-lists" } })).toEqual({ allowed: true, source: "baseline" });

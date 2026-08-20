@@ -86,7 +86,7 @@ export function AuthenticatedShell({ current, children }: { current: ShellDestin
         <Link className="brand" href="/today">Life Chat</Link>
         <div className="context-card" aria-label="Current household context"><span className="eyebrow">Current household</span><strong>{context.householdName}</strong><p>{context.displayName} · {context.role}</p></div>
         <nav aria-label="Primary navigation"><ul className="shell-navigation">{coreNavigation.map((item) => <li key={item.id}><NavigationItem item={item} current={current} /></li>)}</ul></nav>
-        {context.enabledApps.includes("shared-lists") ? <nav aria-label="Enabled apps"><p className="eyebrow">Enabled apps</p><ul className="shell-navigation"><li><Link aria-current={current === "lists" ? "page" : undefined} href="/lists">Shared Lists</Link></li></ul></nav> : null}
+        {context.enabledApps.includes("shared-lists") || context.enabledApps.includes("chores") ? <nav aria-label="Enabled apps"><p className="eyebrow">Enabled apps</p><ul className="shell-navigation">{context.enabledApps.includes("shared-lists") ? <li><Link aria-current={current === "lists" ? "page" : undefined} href="/lists">Shared Lists</Link></li> : null}{context.enabledApps.includes("chores") ? <li><Link aria-current={current === "chores" ? "page" : undefined} href="/chores">Chores</Link></li> : null}</ul></nav> : null}
         <button className="secondary-button" type="button" onClick={() => void signOut()}>Sign out</button>
         <p className="shell-note">Normal interfaces remain available alongside chat.</p>
       </aside>
