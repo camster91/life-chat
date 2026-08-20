@@ -91,6 +91,8 @@ model Household {
   calendarItems CalendarItem[]
   habitRoutines HabitRoutine[]
   habitCompletions HabitCompletion[]
+  rewards Reward[]
+  rewardRequests RewardRequest[]
   memberLifecycleCommands MemberLifecycleCommand[]
   notifications NotificationEnvelope[]
   notificationPreferences NotificationPreference[]
@@ -173,6 +175,48 @@ model HabitCompletion {
   @@unique([routineId, completionDate])
   @@index([householdId, completionDate])
   @@map("habit_completions")
+}
+
+model Reward {
+  id                String          @id @default(cuid())
+  householdId       String
+  label             String
+  creationCommandId String?         @unique
+  version           Int             @default(1)
+  archivedAt        DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  household         Household       @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  requests          RewardRequest[]
+
+  @@unique([householdId, id])
+  @@index([householdId, archivedAt])
+  @@map("rewards")
+}
+
+enum RewardRequestState {
+  requested
+  approved
+  rejected
+}
+
+model RewardRequest {
+  id                  String             @id @default(cuid())
+  householdId         String
+  rewardId            String
+  requesterMemberId   String
+  state               RewardRequestState @default(requested)
+  requestCommandId    String?            @unique
+  decisionCommandId   String?            @unique
+  decidedByMemberId   String?
+  decidedAt           DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  household           Household          @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  reward              Reward             @relation(fields: [householdId, rewardId], references: [householdId, id], onDelete: Restrict)
+
+  @@index([householdId, requesterMemberId, state])
+  @@map("reward_requests")
 }
 
 enum ChoreAssignmentState {

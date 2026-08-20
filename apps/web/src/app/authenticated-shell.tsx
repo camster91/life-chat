@@ -7,7 +7,7 @@ import type { AccountContextResponse } from "../lib/account-context";
 import { authClient } from "../lib/auth-client";
 
 type ActiveContext = Extract<AccountContextResponse, { status: "active" }>;
-type ShellDestination = "today" | "chat" | "apps" | "calendar" | "family" | "notifications" | "search" | "settings" | "lists" | "chores" | "habits";
+type ShellDestination = "today" | "chat" | "apps" | "calendar" | "family" | "notifications" | "search" | "settings" | "lists" | "chores" | "habits" | "rewards";
 const ActiveShellContext = createContext<ActiveContext | null>(null);
 
 export function useActiveShellContext(): ActiveContext {
@@ -85,7 +85,7 @@ export function AuthenticatedShell({ current, children }: { current: ShellDestin
         <Link className="brand" href="/today">Life Chat</Link>
         <div className="context-card" aria-label="Current household context"><span className="eyebrow">Current household</span><strong>{context.householdName}</strong><p>{context.displayName} · {context.role}</p></div>
         <nav aria-label="Primary navigation"><ul className="shell-navigation">{coreNavigation.map((item) => <li key={item.id}><NavigationItem item={item} current={current} /></li>)}</ul></nav>
-        {context.enabledApps.includes("habits") || context.enabledApps.includes("shared-lists") || context.enabledApps.includes("chores") ? <nav aria-label="Enabled apps"><p className="eyebrow">Enabled apps</p><ul className="shell-navigation">{context.enabledApps.includes("habits") ? <li><Link aria-current={current === "habits" ? "page" : undefined} href="/habits">Habits</Link></li> : null}{context.enabledApps.includes("shared-lists") ? <li><Link aria-current={current === "lists" ? "page" : undefined} href="/lists">Shared Lists</Link></li> : null}{context.enabledApps.includes("chores") ? <li><Link aria-current={current === "chores" ? "page" : undefined} href="/chores">Chores</Link></li> : null}</ul></nav> : null}
+        {context.enabledApps.includes("habits") || context.enabledApps.includes("rewards") || context.enabledApps.includes("shared-lists") || context.enabledApps.includes("chores") ? <nav aria-label="Enabled apps"><p className="eyebrow">Enabled apps</p><ul className="shell-navigation">{context.enabledApps.includes("habits") ? <li><Link aria-current={current === "habits" ? "page" : undefined} href="/habits">Habits</Link></li> : null}{context.enabledApps.includes("rewards") ? <li><Link aria-current={current === "rewards" ? "page" : undefined} href="/rewards">Rewards</Link></li> : null}{context.enabledApps.includes("shared-lists") ? <li><Link aria-current={current === "lists" ? "page" : undefined} href="/lists">Shared Lists</Link></li> : null}{context.enabledApps.includes("chores") ? <li><Link aria-current={current === "chores" ? "page" : undefined} href="/chores">Chores</Link></li> : null}</ul></nav> : null}
         <button className="secondary-button" type="button" onClick={() => void signOut()}>Sign out</button>
         <p className="shell-note">Normal interfaces remain available alongside chat.</p>
       </aside>
