@@ -21,12 +21,22 @@ function toNotification(record: {
   };
 }
 
-export async function loadNotificationInbox(database: PrismaClient, context: ActiveHouseholdContext): Promise<readonly InboxNotification[]> {
-  const records = await database.notificationEnvelope.findMany({
-    where: { householdId: context.householdId, recipientMemberId: context.memberId, state: { in: ["available", "read"] } },
-    orderBy: { deliverAt: "desc" }, take: 100,
-  });
-  return createNotificationInbox({ context, notifications: records.map(toNotification) });
+export async function loadNotificationInbox(database: PrismaClient, input: { context: ActiveHouseholdContext; grants: readonly CapabilityGrant[]; now: Date }): Promise<readonly InboxNotification[]> {
+  return database.$transaction(async (transaction) => {
+    const member = await transaction.member.findFirst({ where: {
+      id: input.context.memberId, householdId: input.context.householdId,
+      authenticatedSubjectId: input.context.authenticatedSubjectId, lifecycle: "active",
+      OR: [{ expiresAt: null }, { expiresAt: { gt: input.now } }],
+    } });
+    if (member === null) throw new NotificationCommandError("The active member is no longer eligible.");
+    const decision = authorize({ context: input.context, role: member.role, grants: input.grants, request: { householdId: member.householdId, permission: "notification.manage-self" }, now: input.now });
+    if (!decision.allowed) throw new NotificationCommandError("Notification inbox access is not authorized.");
+    const records = await transaction.notificationEnvelope.findMany({
+      where: { householdId: member.householdId, recipientMemberId: member.id, state: { in: ["available", "read"] } },
+      orderBy: { deliverAt: "desc" }, take: 100,
+    });
+    return createNotificationInbox({ context: input.context, notifications: records.map(toNotification) });
+  }, { isolationLevel: "Serializable" });
 }
 
 /** Creates one scheduled envelope from an existing same-household domain event. */
@@ -160,7 +170,7 @@ export async function markNotificationRead(database: PrismaClient, input: {
   }, { isolationLevel: "Serializable" });
 }
 
-/** Dismisses only the active recipient's available notification. */
+/** Dismisses only the active recipient's available or read notification. */
 export async function dismissNotification(database: PrismaClient, input: {
   context: ActiveHouseholdContext; grants: readonly CapabilityGrant[]; notificationId: string; now: Date;
 }) {
@@ -176,10 +186,10 @@ export async function dismissNotification(database: PrismaClient, input: {
     const current = await transaction.notificationEnvelope.findFirst({ where: { id: input.notificationId, householdId: member.householdId, recipientMemberId: member.id } });
     if (current === null) throw new NotificationCommandError("The notification is not available to this member.");
     if (current.state === "dismissed") return current;
-    if (current.state !== "available") throw new NotificationCommandError("Only an available notification may be dismissed.");
+    if (current.state !== "available" && current.state !== "read") throw new NotificationCommandError("Only an available or read notification may be dismissed.");
 
     const changed = await transaction.notificationEnvelope.updateMany({
-      where: { id: current.id, householdId: member.householdId, recipientMemberId: member.id, state: "available" },
+      where: { id: current.id, householdId: member.householdId, recipientMemberId: member.id, state: { in: ["available", "read"] } },
       data: { state: "dismissed", dismissedAt: input.now },
     });
     if (changed.count !== 1) throw new NotificationCommandError("Notification state changed; reload the inbox.");

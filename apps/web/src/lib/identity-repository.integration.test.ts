@@ -264,8 +264,10 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       const household = await database.household.create({ data: { id: `notifications-household-${suffix}`, name: "Notifications" } });
       const adultSubject = await database.user.create({ data: { id: `notifications-adult-${suffix}`, name: "Adult", email: `notifications-adult-${suffix}@example.test` } });
       const childSubject = await database.user.create({ data: { id: `notifications-child-${suffix}`, name: "Child", email: `notifications-child-${suffix}@example.test` } });
+      const guestSubject = await database.user.create({ data: { id: `notifications-active-guest-${suffix}`, name: "Guest", email: `notifications-guest-${suffix}@example.test` } });
       const adult = await database.member.create({ data: { id: `notifications-adult-member-${suffix}`, householdId: household.id, authenticatedSubjectId: adultSubject.id, displayName: "Adult", role: "adult", lifecycle: "active" } });
       const child = await database.member.create({ data: { id: `notifications-child-member-${suffix}`, householdId: household.id, authenticatedSubjectId: childSubject.id, displayName: "Child", role: "child", lifecycle: "active" } });
+      const activeGuest = await database.member.create({ data: { id: `notifications-active-guest-member-${suffix}`, householdId: household.id, authenticatedSubjectId: guestSubject.id, displayName: "Guest", role: "guest", lifecycle: "active" } });
       const expiredGuest = await database.member.create({ data: { id: `notifications-guest-member-${suffix}`, householdId: household.id, displayName: "Expired guest", role: "guest", lifecycle: "active", expiresAt: new Date("2026-08-19T09:00:00.000Z") } });
       const adultContext = { authenticatedSubjectId: adultSubject.id, memberId: adult.id, householdId: household.id };
       const childContext = { authenticatedSubjectId: childSubject.id, memberId: child.id, householdId: household.id };
@@ -274,10 +276,12 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       const expiredGuestNotification = await database.notificationEnvelope.create({ data: { id: `notification-guest-${suffix}`, householdId: household.id, recipientMemberId: expiredGuest.id, templateId: "household.summary", sourceEventId: `event-guest-${suffix}`, references: {}, deduplicationKey: `dedupe-guest-${suffix}`, deliverAt: now, state: "scheduled" } });
       await database.notificationEnvelope.create({ data: { id: `notification-adult-${suffix}`, householdId: household.id, recipientMemberId: adult.id, templateId: "household.summary", sourceEventId: `event-adult-${suffix}`, references: {}, deduplicationKey: `dedupe-adult-${suffix}`, deliverAt: now, state: "available" } });
 
-      expect(await loadNotificationInbox(database, childContext)).toMatchObject([{ id: dismissibleNotification.id, state: "available" }]);
+      const childInboxInput = { context: childContext, grants: [], now };
+      await expect(loadNotificationInbox(database, { context: { authenticatedSubjectId: guestSubject.id, memberId: activeGuest.id, householdId: household.id }, grants: [], now })).rejects.toThrow(NotificationCommandError);
+      expect(await loadNotificationInbox(database, childInboxInput)).toMatchObject([{ id: dismissibleNotification.id, state: "available" }]);
       expect(await releaseDueNotifications(database, { householdId: household.id, now })).toEqual({ available: 1, cancelled: 1 });
       expect(await database.notificationEnvelope.findUniqueOrThrow({ where: { id: expiredGuestNotification.id }, select: { state: true } })).toEqual({ state: "cancelled" });
-      expect((await loadNotificationInbox(database, childContext)).some((notification) => notification.id === childNotification.id)).toBe(true);
+      expect((await loadNotificationInbox(database, childInboxInput)).some((notification) => notification.id === childNotification.id)).toBe(true);
       await expect(markNotificationRead(database, { context: adultContext, grants: [], notificationId: childNotification.id, now })).rejects.toThrow(NotificationCommandError);
       await markNotificationRead(database, { context: childContext, grants: [], notificationId: childNotification.id, now });
       await markNotificationRead(database, { context: childContext, grants: [], notificationId: childNotification.id, now });
@@ -285,8 +289,11 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       await dismissNotification(database, { context: childContext, grants: [], notificationId: dismissibleNotification.id, now });
       expect(await database.auditEvent.count({ where: { householdId: household.id, action: "notification.read", targetId: childNotification.id } })).toBe(1);
       expect(await database.auditEvent.count({ where: { householdId: household.id, action: "notification.dismiss", targetId: dismissibleNotification.id } })).toBe(1);
-      expect(await loadNotificationInbox(database, childContext)).toMatchObject([{ id: childNotification.id, state: "read" }]);
-      expect((await loadNotificationInbox(database, childContext)).some((notification) => notification.id === dismissibleNotification.id)).toBe(false);
+      expect(await loadNotificationInbox(database, childInboxInput)).toMatchObject([{ id: childNotification.id, state: "read" }]);
+      expect((await loadNotificationInbox(database, childInboxInput)).some((notification) => notification.id === dismissibleNotification.id)).toBe(false);
+      await dismissNotification(database, { context: childContext, grants: [], notificationId: childNotification.id, now });
+      expect(await database.auditEvent.count({ where: { householdId: household.id, action: "notification.dismiss", targetId: childNotification.id } })).toBe(1);
+      expect(await loadNotificationInbox(database, childInboxInput)).toEqual([]);
     } finally { await database.$disconnect(); }
   });
 

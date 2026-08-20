@@ -111,6 +111,17 @@ p { max-width: 65ch; color: var(--muted); font-size: 1.05rem; line-height: 1.6; 
 .family-member-summary h3, .family-member-summary p { margin: 0; }
 .family-member-summary h3 { font-size: 1rem; }
 .family-member-summary p { margin-top: .25rem; font-size: .875rem; }
+.notification-layout { display: grid; gap: 2rem; }
+.notification-list { display: grid; gap: .75rem; margin: 0; padding: 0; list-style: none; }
+.notification-list > li { display: grid; gap: .75rem; padding: 1rem; border: 1px solid var(--line); border-radius: .75rem; background: var(--surface); }
+.notification-list > li.is-read { background: var(--paper); }
+.notification-list h3, .notification-list time { margin: .2rem 0 0; }
+.notification-list h3 { font-size: 1rem; }
+.notification-list time, .notification-state { color: var(--muted); font-size: .8125rem; }
+.notification-state { font-weight: 700; text-transform: uppercase; }
+.notification-preferences { display: grid; gap: 1rem; }
+.notification-preferences h2, .notification-preferences p { margin: 0; }
+.quiet-hours { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 .skip-link { position: fixed; z-index: 3; top: .5rem; left: .5rem; padding: .75rem 1rem; border-radius: .5rem; background: var(--ink); color: #fff; transform: translateY(-150%); }
 .skip-link:focus { transform: translateY(0); }

@@ -49,6 +49,25 @@ test("authenticated shell preserves context and enabled-app navigation across de
   results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
   expect(results.violations).toEqual([]);
 
+  await page.getByRole("link", { name: "Notifications", exact: true }).first().click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Updates without the noise");
+  const reminder = page.getByRole("listitem").filter({ has: page.getByRole("heading", { name: "Chore reminder" }) });
+  await reminder.getByRole("button", { name: "Mark read" }).click();
+  await expect(reminder).toContainText("Read");
+  await reminder.getByRole("button", { name: "Review dismiss" }).click();
+  await expect(reminder.getByRole("group", { name: "Confirm dismiss Chore reminder" })).toBeVisible();
+  await reminder.getByRole("button", { name: "Confirm" }).click();
+  await expect(page.getByText("You are all caught up.")).toBeVisible();
+  await page.getByLabel("Use quiet hours").check();
+  await page.getByLabel("Start").fill("22:00");
+  await page.getByLabel("End").fill("07:00");
+  await page.getByRole("button", { name: "Save preferences" }).click();
+  await expect(page.getByText("Preferences saved.")).toBeVisible();
+  results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+  expect(results.violations).toEqual([]);
+
+  await page.getByRole("link", { name: "Calendar", exact: true }).first().click();
+
   await page.setViewportSize({ width: 375, height: 812 });
   const primaryTargets = page.getByRole("navigation", { name: "Mobile primary navigation" }).locator("a:visible, span:visible, button:visible");
   await expect(primaryTargets).toHaveCount(5);
