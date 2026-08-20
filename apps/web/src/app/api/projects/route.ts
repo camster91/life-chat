@@ -1,0 +1,8 @@
+import { NextRequest, NextResponse } from "next/server";
+import { readAuthEnvironment } from "@/lib/auth-environment";
+import { getDatabase } from "@/lib/database";
+import { createProject, ProjectCommandError } from "@/lib/project-repository";
+import { RequestContextError, resolveRequestContext } from "@/lib/server-request-context";
+export const dynamic = "force-dynamic";
+function json(body: { error: string } | { id: string; label: string; scope: string }, status = 200) { return NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } }); }
+export async function POST(request: NextRequest) { if (request.headers.get("origin") !== readAuthEnvironment().trustedOrigin) return json({ error: "The request origin is not allowed." }, 403); try { const resolved = await resolveRequestContext(request); const body: unknown = await request.json().catch(() => null); const get = (key: string) => typeof body === "object" && body !== null && key in body && typeof body[key as keyof typeof body] === "string" ? body[key as keyof typeof body] : ""; const scope = get("scope") === "personal" ? "personal" : "household"; const project = await createProject(getDatabase(), { actor: { context: resolved.context, grants: [] }, label: get("label"), scope, commandId: get("commandId"), now: new Date() }); return json({ id: project.id, label: project.label, scope: project.scope }, 201); } catch (error) { if (error instanceof RequestContextError) return json({ error: error.message }, error.reason === "unauthenticated" ? 401 : 409); if (error instanceof ProjectCommandError) return json({ error: "The project could not be created." }, 403); throw error; } }
