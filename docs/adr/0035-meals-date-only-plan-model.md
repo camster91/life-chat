@@ -2,9 +2,9 @@
 
 ## Status
 
-Accepted for a read-only, date-only meal-plan foundation and review-only plan
-change proposal. It does not import Meal Planner data or mutate plans, recipes,
-calendar, groceries, or lists.
+Accepted for a date-only household meal plan and adult-managed plan entries. It
+does not import Meal Planner data or mutate recipes, calendar, groceries, or
+lists.
 
 ## Decision
 
@@ -14,16 +14,18 @@ internal recipe handoff only. Recipe instructions/ingredients/notes, images and
 URLs, dietary data, serving quantities, grocery generation, and completion
 state are deliberately outside this presentation model.
 
-The mini-app must be eligible. Production commands must re-derive context,
-reauthorize, validate date/list/calendar conflicts, explicitly confirm,
-persist atomically, emit audit/domain/outbox events, and never use an AI or
-recipe link to silently alter groceries or a schedule.
+The mini-app must be eligible. Adults receive `meals.manage`; adults and
+children can read; guests are denied. Adults can add a bounded date-only entry
+with a meal slot through the normal UI. The command derives context server-side,
+reauthorizes the mini-app and capability inside a serializable transaction,
+retains a replay-safe command ID, and emits audit/outbox evidence atomically.
+It never uses an AI or recipe link to silently alter groceries or a schedule.
 
 ## Non-goals and verification
 
 No Recipe/Meal Planner import, source database access, recipe storage, image
-attachment, quantity normalization, calendar sync, grocery generation, plan
-write, or UI is included. Tests cover app eligibility, date-only filtering,
-household isolation, safe links, and proposal-only behavior. Shared Lists and
-Groceries integration plus UX/accessibility validation remain before #27 can
-close.
+attachment, quantity normalization, calendar sync, grocery generation,
+edit/archive flow, or recipe UI is included. Tests cover app eligibility,
+date-only filtering, household isolation, adult management, replay-safe create,
+and audit/outbox writes. Shared Lists and Groceries integration plus
+authenticated UX/accessibility validation remain before #27 can close.
