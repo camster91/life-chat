@@ -16,7 +16,7 @@ export async function searchAuthorizedRecords(database: PrismaClient, input: {
   now: Date;
 }): Promise<readonly SearchResultGroup[]> {
   const query = input.query.trim();
-  if (query.length < 2 || query.length > 120) throw new SearchAccessError("Search query must be between 2 and 120 characters.");
+  if (query.length < 2 || query.length > 120) throw new SearchQueryError("Search query must be between 2 and 120 characters.");
 
   return database.$transaction(async (transaction) => {
     const member = await transaction.member.findFirst({ where: {
@@ -74,3 +74,4 @@ export async function searchAuthorizedRecords(database: PrismaClient, input: {
 }
 
 export class SearchAccessError extends Error {}
+export class SearchQueryError extends Error {}

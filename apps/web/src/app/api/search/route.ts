@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDatabase } from "@/lib/database";
 import type { SearchApiResponse } from "@/lib/search-api";
-import { SearchAccessError, searchAuthorizedRecords } from "@/lib/global-search-repository";
+import { SearchAccessError, SearchQueryError, searchAuthorizedRecords } from "@/lib/global-search-repository";
 import { RequestContextError, resolveRequestContext } from "@/lib/server-request-context";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     return json({ query: query.trim(), groups });
   } catch (error) {
     if (error instanceof RequestContextError) return json({ error: error.message }, error.reason === "unauthenticated" ? 401 : 409);
+    if (error instanceof SearchQueryError) return json({ error: error.message }, 400);
     if (error instanceof SearchAccessError) return json({ error: error.message }, 403);
     throw error;
   }
