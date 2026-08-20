@@ -12,6 +12,7 @@ export function ListWorkspace({ listId }: { listId: string }) {
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [completion, setCompletion] = useState<{ itemId: string; expectedVersion: number; commandId: string } | null>(null);
+  const [reopening, setReopening] = useState<{ itemId: string; expectedVersion: number; commandId: string } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -68,6 +69,32 @@ export function ListWorkspace({ listId }: { listId: string }) {
     } finally { setSaving(false); }
   }
 
+  async function confirmReopen() {
+    if (reopening === null) return;
+    setSaving(true);
+    setNotice(null);
+    try {
+      const response = await fetch(`/api/lists/${encodeURIComponent(listId)}/items/${encodeURIComponent(reopening.itemId)}/reopen`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commandId: reopening.commandId, expectedVersion: reopening.expectedVersion }),
+      });
+      if (!response.ok) {
+        const conflict = response.status === 409;
+        if (conflict) {
+          setReopening(null);
+          await load();
+        }
+        throw new Error(conflict ? "conflict" : "reopen failed");
+      }
+      setReopening(null);
+      setNotice("Item reopened.");
+      await load();
+    } catch (error) {
+      setNotice(error instanceof Error && error.message === "conflict" ? "The item changed, so the list was refreshed. Review it before trying again." : "The item was not reopened. You can safely try again or cancel.");
+    } finally { setSaving(false); }
+  }
+
   if (state.kind === "loading") return <section className="shell-card" role="status"><p>Loading list…</p></section>;
   if (state.kind === "signed-out") return <section className="shell-card empty-state"><h1>Sign in to view this list</h1><Link className="primary-button inline-button" href="/sign-in">Sign in</Link></section>;
   if (state.kind === "error") return <section className="shell-card" role="alert"><h1>List unavailable</h1><p>It may not exist, may belong to another household, or may no longer be available.</p><Link href="/lists">Return to lists</Link></section>;
@@ -80,8 +107,9 @@ export function ListWorkspace({ listId }: { listId: string }) {
     </form> : <p className="calm-note">You can view this list and mark open items complete. An adult can add or edit items.</p>}
     <div aria-live="polite" aria-atomic="true">{notice === null ? null : <p className={notice.startsWith("Item added") || notice.startsWith("Item completed") ? "form-success" : "form-error"}>{notice}</p>}</div>
     {state.data.items.length === 0 ? <div className="shell-card empty-state"><h2>This list is empty</h2><p>Add only what is useful. You can come back anytime.</p></div> : <ol className="list-items">{state.data.items.map((item) => <li key={item.id} className={item.state === "completed" ? "is-complete" : undefined}>
-      <div className="list-item-content"><span>{item.label}</span>{item.assignedToActiveMember ? <small>Assigned to you</small> : null}{item.state === "completed" ? <small>Completed</small> : null}{item.state === "open" && state.data.canComplete && completion?.itemId !== item.id ? <button className="secondary-button compact-button" type="button" disabled={saving} onClick={() => setCompletion({ itemId: item.id, expectedVersion: item.version, commandId: crypto.randomUUID() })}>Mark complete</button> : null}</div>
+      <div className="list-item-content"><span>{item.label}</span>{item.assignedToActiveMember ? <small>Assigned to you</small> : null}{item.state === "completed" ? <small>Completed</small> : null}{item.state === "open" && state.data.canComplete && completion?.itemId !== item.id ? <button className="secondary-button compact-button" type="button" disabled={saving} onClick={() => setCompletion({ itemId: item.id, expectedVersion: item.version, commandId: crypto.randomUUID() })}>Mark complete</button> : null}{item.state === "completed" && state.data.canManage && reopening?.itemId !== item.id ? <button className="secondary-button compact-button" type="button" disabled={saving} onClick={() => setReopening({ itemId: item.id, expectedVersion: item.version, commandId: crypto.randomUUID() })}>Reopen item</button> : null}</div>
       {completion?.itemId === item.id ? <div className="confirmation-panel" role="group" aria-label={`Confirm completion of ${item.label}`}><p>Mark <strong>{item.label}</strong> complete?</p><div><button className="primary-button compact-button" type="button" disabled={saving} onClick={() => void confirmCompletion()}>{saving ? "Saving…" : "Confirm"}</button><button className="secondary-button compact-button" type="button" disabled={saving} onClick={() => setCompletion(null)}>Cancel</button></div></div> : null}
+      {reopening?.itemId === item.id ? <div className="confirmation-panel" role="group" aria-label={`Confirm reopening of ${item.label}`}><p>Reopen <strong>{item.label}</strong>?</p><div><button className="primary-button compact-button" type="button" disabled={saving} onClick={() => void confirmReopen()}>{saving ? "Saving…" : "Confirm"}</button><button className="secondary-button compact-button" type="button" disabled={saving} onClick={() => setReopening(null)}>Cancel</button></div></div> : null}
     </li>)}</ol>}
   </section>;
 }

@@ -153,3 +153,48 @@ export async function completeSharedListItem(database: PrismaClient, input: { ac
     throw error;
   }
 }
+
+export async function reopenSharedListItem(database: PrismaClient, input: { actor: Actor; listId: string; itemId: string; expectedVersion: number; commandId: string; now: Date }) {
+  const commandId = boundedCommandId(input.commandId);
+  if (!Number.isSafeInteger(input.expectedVersion) || input.expectedVersion < 1) throw new SharedListCommandError("expectedVersion must be a positive integer.");
+  try {
+    return await database.$transaction(async (transaction) => {
+      const member = await authorizeListManagement(transaction as PrismaClient, input.actor, input.now);
+      const existing = await transaction.sharedListItem.findUnique({ where: { reopenCommandId: commandId } });
+      if (existing !== null) {
+        const isAuthorizedReplay = existing.householdId === member.householdId
+          && existing.listId === input.listId
+          && existing.id === input.itemId
+          && existing.state === "open";
+        if (!isAuthorizedReplay) throw new SharedListCommandError("commandId cannot cross item, list, or household boundaries.");
+        return existing;
+      }
+      const item = await transaction.sharedListItem.findFirst({ where: {
+        id: input.itemId,
+        listId: input.listId,
+        householdId: member.householdId,
+        state: "completed",
+        list: { archivedAt: null },
+      } });
+      if (item === null) throw new SharedListCommandError("The requested completed item is not available to reopen.");
+      if (item.version !== input.expectedVersion) throw new SharedListConflictError("The item changed after it was loaded.");
+      const updated = await transaction.sharedListItem.updateMany({
+        where: { id: item.id, householdId: member.householdId, listId: input.listId, state: "completed", version: input.expectedVersion },
+        data: { state: "open", version: { increment: 1 }, reopenCommandId: commandId, completedAt: null, completedByMemberId: null },
+      });
+      if (updated.count !== 1) throw new SharedListConflictError("The item changed before reopening could be saved.");
+      await transaction.sharedList.update({ where: { id: input.listId }, data: { version: { increment: 1 } } });
+      const correlationId = newCorrelationId();
+      const auditEvent = createAuditEvent({ householdId: member.householdId, actor: { type: "member", id: member.id }, action: "shared-list.item.reopen", target: { type: "shared-list-item", id: item.id }, outcome: "succeeded", correlationId, causationId: null, occurredAt: input.now.toISOString(), metadata: { previousVersion: item.version } });
+      const domainEvent = createDomainEvent({ householdId: member.householdId, aggregate: { type: "shared-list", id: input.listId }, type: "shared-list.item-reopened.v1", correlationId, causationId: auditEvent.id, occurredAt: input.now.toISOString(), references: { itemId: item.id } });
+      await transaction.auditEvent.create({ data: { id: auditEvent.id, householdId: auditEvent.householdId, actorType: auditEvent.actor.type, actorId: auditEvent.actor.id, action: auditEvent.action, targetType: auditEvent.target.type, targetId: auditEvent.target.id, outcome: auditEvent.outcome, correlationId: auditEvent.correlationId, causationId: auditEvent.causationId, metadata: auditEvent.metadata, occurredAt: new Date(auditEvent.occurredAt) } });
+      await transaction.outboxEvent.create({ data: { id: domainEvent.id, householdId: domainEvent.householdId, aggregateType: domainEvent.aggregate.type, aggregateId: domainEvent.aggregate.id, eventType: domainEvent.type, schemaVersion: domainEvent.schemaVersion, correlationId: domainEvent.correlationId, causationId: domainEvent.causationId, references: domainEvent.references, occurredAt: new Date(domainEvent.occurredAt) } });
+      return transaction.sharedListItem.findUniqueOrThrow({ where: { id: item.id } });
+    }, { isolationLevel: "Serializable" });
+  } catch (error) {
+    if (typeof error === "object" && error !== null && "code" in error && error.code === "P2034") {
+      throw new SharedListConflictError("The item changed before reopening could be saved.");
+    }
+    throw error;
+  }
+}

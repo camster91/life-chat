@@ -193,6 +193,7 @@ model SharedListItem {
   state              SharedListItemState @default(open)
   version            Int                 @default(1)
   completionCommandId String?            @unique
+  reopenCommandId    String?             @unique
   assignedMemberId   String?
   completedAt        DateTime?
   completedByMemberId String?

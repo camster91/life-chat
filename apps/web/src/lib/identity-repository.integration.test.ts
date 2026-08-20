@@ -148,7 +148,7 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
     const { createPostgresAdapter } = await import("./postgres-adapter");
     const { PrismaClient } = await import("../../generated/prisma/client");
     const { setHouseholdMiniAppEnabled } = await import("./identity-repository");
-    const { addSharedListItem, completeSharedListItem, createSharedList, loadSharedList, loadSharedLists, SharedListCommandError, SharedListConflictError } = await import("./shared-list-repository");
+    const { addSharedListItem, completeSharedListItem, createSharedList, loadSharedList, loadSharedLists, reopenSharedListItem, SharedListCommandError, SharedListConflictError } = await import("./shared-list-repository");
     const database = new PrismaClient({ adapter: createPostgresAdapter(databaseUrl!) });
     try {
       const suffix = randomUUID();
@@ -179,6 +179,12 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       expect((await completeSharedListItem(database, { actor: childActor, listId: list.id, itemId: item.id, expectedVersion: item.version, commandId: `complete-${suffix}`, now })).id).toBe(item.id);
       await expect(completeSharedListItem(database, { actor, listId: list.id, itemId: item.id, expectedVersion: item.version, commandId: `complete-${suffix}`, now })).rejects.toThrow(SharedListCommandError);
       await expect(completeSharedListItem(database, { actor: guestActor, listId: list.id, itemId: item.id, expectedVersion: item.version, commandId: `guest-complete-${suffix}`, now })).rejects.toThrow(SharedListCommandError);
+      await expect(reopenSharedListItem(database, { actor: childActor, listId: list.id, itemId: item.id, expectedVersion: completed.version, commandId: `reopen-child-${suffix}`, now })).rejects.toThrow(SharedListCommandError);
+      await expect(reopenSharedListItem(database, { actor, listId: list.id, itemId: item.id, expectedVersion: 999, commandId: `reopen-stale-${suffix}`, now })).rejects.toThrow(SharedListConflictError);
+      const reopened = await reopenSharedListItem(database, { actor, listId: list.id, itemId: item.id, expectedVersion: completed.version, commandId: `reopen-${suffix}`, now });
+      expect(reopened).toMatchObject({ id: item.id, state: "open", version: completed.version + 1, completedAt: null, completedByMemberId: null });
+      expect((await reopenSharedListItem(database, { actor, listId: list.id, itemId: item.id, expectedVersion: completed.version, commandId: `reopen-${suffix}`, now })).id).toBe(item.id);
+      await expect(reopenSharedListItem(database, { actor: childActor, listId: list.id, itemId: item.id, expectedVersion: reopened.version, commandId: `reopen-${suffix}`, now })).rejects.toThrow(SharedListCommandError);
       const otherHousehold = await database.household.create({ data: { id: `lists-other-household-${suffix}`, name: "Other lists" } });
       const otherSubject = await database.user.create({ data: { id: `lists-other-subject-${suffix}`, name: "Other adult", email: `lists-other-${suffix}@example.test` } });
       const otherMember = await database.member.create({ data: { id: `lists-other-member-${suffix}`, householdId: otherHousehold.id, authenticatedSubjectId: otherSubject.id, displayName: "Other adult", role: "adult", lifecycle: "active" } });
@@ -189,8 +195,8 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       await expect(loadSharedList(database, { actor: otherActor, listId: list.id, now })).rejects.toThrow(SharedListCommandError);
       await expect(completeSharedListItem(database, { actor: otherActor, listId: list.id, itemId: item.id, expectedVersion: item.version, commandId: `complete-${suffix}`, now })).rejects.toThrow(SharedListCommandError);
       expect(await database.sharedListItem.count({ where: { listId: list.id } })).toBe(1);
-      expect(await database.auditEvent.count({ where: { householdId: household.id, action: { startsWith: "shared-list" } } })).toBe(3);
-      expect(await database.outboxEvent.count({ where: { householdId: household.id, eventType: { startsWith: "shared-list" } } })).toBe(3);
+      expect(await database.auditEvent.count({ where: { householdId: household.id, action: { startsWith: "shared-list" } } })).toBe(4);
+      expect(await database.outboxEvent.count({ where: { householdId: household.id, eventType: { startsWith: "shared-list" } } })).toBe(4);
       await database.member.update({ where: { id: member.id }, data: { lifecycle: "suspended" } });
       await expect(createSharedList(database, { actor, title: "Suspended replay", commandId: `list-${suffix}`, now })).rejects.toThrow(SharedListCommandError);
       await expect(addSharedListItem(database, { actor, listId: list.id, label: "Suspended replay", commandId: `item-${suffix}`, now })).rejects.toThrow(SharedListCommandError);
