@@ -7,7 +7,7 @@ import type { AccountContextResponse } from "../lib/account-context";
 import { authClient } from "../lib/auth-client";
 
 type ActiveContext = Extract<AccountContextResponse, { status: "active" }>;
-type ShellDestination = "today" | "apps" | "calendar" | "family" | "notifications" | "search" | "settings" | "lists" | "chores";
+type ShellDestination = "today" | "chat" | "apps" | "calendar" | "family" | "notifications" | "search" | "settings" | "lists" | "chores";
 const ActiveShellContext = createContext<ActiveContext | null>(null);
 
 export function useActiveShellContext(): ActiveContext {
@@ -18,7 +18,7 @@ export function useActiveShellContext(): ActiveContext {
 
 const coreNavigation = [
   { id: "today", label: "Today", href: "/today" },
-  { id: "chat", label: "Chat", href: null },
+  { id: "chat", label: "Chat", href: "/chat" },
   { id: "apps", label: "Apps", href: "/apps" },
   { id: "calendar", label: "Calendar", href: "/calendar" },
   { id: "family", label: "Family", href: "/family" },
@@ -28,7 +28,6 @@ const coreNavigation = [
 ] as const;
 
 function NavigationItem({ item, current }: { item: (typeof coreNavigation)[number]; current: ShellDestination }) {
-  if (item.href === null) return <span aria-disabled="true">{item.label}<small>Planned</small></span>;
   return <Link aria-current={current === item.id ? "page" : undefined} href={item.href}>{item.label}</Link>;
 }
 

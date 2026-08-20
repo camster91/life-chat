@@ -2,9 +2,9 @@
 
 ## Status
 
-Accepted for a provider-independent presentation model. It does not connect to
-an AI provider, retain conversations, call tools, execute actions, or replace
-normal UI.
+Accepted for a provider-independent presentation model and an authenticated
+no-provider route. It does not connect to an AI provider, retain conversations,
+call tools, execute actions, or replace normal UI.
 
 ## Decision
 
@@ -23,8 +23,10 @@ confirmation/execution path.
 ## Non-goals and verification
 
 This adds no provider SDK, streaming transport, persistence, transcript export,
-tool call, prompt logging, citation retrieval, or AI mutation. Production work
-still needs server-side authorization/retrieval, accessibility and error-state
-browser validation, rate limits, usage policy, audit/outbox integration, and
-normal-UI route implementations. Unit tests cover retry state, safe handoffs,
-household/member isolation, and proposal-reference integrity.
+tool call, prompt logging, citation retrieval, or AI mutation. The no-provider
+route makes that boundary explicit and offers only normal-UI handoffs; it does
+not present a deceptive message form. Production work still needs server-side
+authorization/retrieval, accessibility and error-state browser validation, rate
+limits, usage policy, audit/outbox integration, and a locally configured
+provider. Unit tests cover retry state, safe handoffs, household/member
+isolation, and proposal-reference integrity.
