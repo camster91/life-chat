@@ -64,8 +64,9 @@ export async function loadSharedList(database: PrismaClient, input: { actor: Act
   }, { isolationLevel: "Serializable" });
 }
 
-export async function createSharedList(database: PrismaClient, input: { actor: Actor; title: string; commandId: string; now: Date }) {
+export async function createSharedList(database: PrismaClient, input: { actor: Actor; title: string; purpose?: "general" | "grocery"; commandId: string; now: Date }) {
   const title = boundedText(input.title, "title");
+  const purpose = input.purpose ?? "general";
   const commandId = boundedCommandId(input.commandId);
   return database.$transaction(async (transaction) => {
     const member = await authorizeListManagement(transaction as PrismaClient, input.actor, input.now);
@@ -75,7 +76,7 @@ export async function createSharedList(database: PrismaClient, input: { actor: A
       return existing;
     }
     const correlationId = newCorrelationId();
-    const list = await transaction.sharedList.create({ data: { householdId: member.householdId, title, creationCommandId: commandId } });
+    const list = await transaction.sharedList.create({ data: { householdId: member.householdId, title, purpose, creationCommandId: commandId } });
     const auditEvent = createAuditEvent({ householdId: member.householdId, actor: { type: "member", id: member.id }, action: "shared-list.create", target: { type: "shared-list", id: list.id }, outcome: "succeeded", correlationId, causationId: null, occurredAt: input.now.toISOString(), metadata: {} });
     const domainEvent = createDomainEvent({ householdId: member.householdId, aggregate: { type: "shared-list", id: list.id }, type: "shared-list.created.v1", correlationId, causationId: auditEvent.id, occurredAt: input.now.toISOString(), references: {} });
     await transaction.auditEvent.create({ data: { id: auditEvent.id, householdId: auditEvent.householdId, actorType: auditEvent.actor.type, actorId: auditEvent.actor.id, action: auditEvent.action, targetType: auditEvent.target.type, targetId: auditEvent.target.id, outcome: auditEvent.outcome, correlationId: auditEvent.correlationId, causationId: auditEvent.causationId, metadata: auditEvent.metadata, occurredAt: new Date(auditEvent.occurredAt) } });

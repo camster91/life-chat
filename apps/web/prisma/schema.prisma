@@ -273,6 +273,7 @@ model SharedList {
   id        String           @id @default(cuid())
   householdId String
   title     String
+  purpose   SharedListPurpose @default(general)
   creationCommandId String? @unique
   version   Int              @default(1)
   archivedAt DateTime?
@@ -283,6 +284,11 @@ model SharedList {
 
   @@index([householdId, updatedAt])
   @@map("shared_lists")
+}
+
+enum SharedListPurpose {
+  general
+  grocery
 }
 
 enum SharedListItemState {
