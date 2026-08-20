@@ -3,7 +3,7 @@
 import { Temporal } from "@js-temporal/polyfill";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import type { CalendarApiItem, CalendarApiResponse } from "@/lib/calendar-api";
 import { useActiveShellContext } from "../authenticated-shell";
 
@@ -24,6 +24,9 @@ export function CalendarWorkspace() {
   const requestedDate = searchParams.get("date");
   const requestKey = requestedDate ?? "";
   const [result, setResult] = useState<{ key: string; agenda: CalendarApiResponse | null; error: string | null } | null>(null);
+  const [newTitle, setNewTitle] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -44,6 +47,23 @@ export function CalendarWorkspace() {
   const agenda = currentResult?.agenda ?? null;
   const error = currentResult?.error ?? null;
 
+  async function createAllDayItem(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (agenda === null || newTitle.trim().length === 0) return;
+    setCreating(true);
+    setNotice(null);
+    try {
+      const response = await fetch("/api/calendar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: newTitle, date: agenda.date, commandId: crypto.randomUUID() }) });
+      if (!response.ok) throw new Error("create failed");
+      setNewTitle("");
+      setNotice("All-day event added.");
+      const refreshed = await fetch(`/api/calendar?date=${encodeURIComponent(agenda.date)}`, { cache: "no-store" });
+      if (!refreshed.ok) throw new Error("refresh failed");
+      setResult({ key: requestKey, agenda: await refreshed.json() as CalendarApiResponse, error: null });
+    } catch { setNotice("The event could not be added. Check your access and try again."); }
+    finally { setCreating(false); }
+  }
+
   return <section aria-labelledby="calendar-title">
     <p className="eyebrow">Calendar</p>
     <h1 id="calendar-title">A calm view of the day</h1>
@@ -54,6 +74,11 @@ export function CalendarWorkspace() {
         <label className="field-group"><span>Date</span><input type="date" value={agenda.date} onChange={(event) => { if (event.target.value !== "") router.push(`/calendar?date=${event.target.value}`); }} /></label>
         <Link className="secondary-button compact-button" href={`/calendar?date=${adjacentDate(agenda.date, 1)}`} aria-label="Next day">Next</Link>
       </div>
+      {agenda.canManage ? <form className="quick-entry" onSubmit={createAllDayItem} aria-label="Add all-day calendar event">
+        <div className="field-group"><label htmlFor="calendar-all-day-title">Add an all-day event for {agenda.date}</label><input id="calendar-all-day-title" value={newTitle} maxLength={200} disabled={creating} onChange={(event) => setNewTitle(event.target.value)} placeholder="School closed" required /></div>
+        <button className="primary-button" type="submit" disabled={creating}>{creating ? "Adding…" : "Add event"}</button>
+      </form> : <p className="calm-note">An adult can add or change household calendar items.</p>}
+      <div aria-live="polite" aria-atomic="true">{notice === null ? null : <p className={notice.startsWith("All-day event") ? "form-success" : "form-error"}>{notice}</p>}</div>
       <section className="shell-card calendar-agenda" aria-labelledby="agenda-heading">
         <div className="section-heading"><div><h2 id="agenda-heading">{new Intl.DateTimeFormat(agenda.locale, { dateStyle: "full", timeZone: "UTC" }).format(new Date(`${agenda.date}T12:00:00Z`))}</h2><p>{agenda.timeZone}</p></div><span>{agenda.items.length} {agenda.items.length === 1 ? "item" : "items"}</span></div>
         {agenda.items.length === 0 ? <p className="calm-note">Nothing is scheduled for this day.</p> : <ol className="calendar-items">{agenda.items.map((item) => <li id={`calendar-item-${item.id}`} key={item.id}>

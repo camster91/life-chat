@@ -124,6 +124,7 @@ model CalendarItem {
   endInstant           DateTime?              @db.Timestamptz(3)
   sourceAppId          String?
   sourceRecordId       String?
+  creationCommandId    String?                @unique
   version              Int                    @default(1)
   archivedAt           DateTime?
   createdAt            DateTime               @default(now())

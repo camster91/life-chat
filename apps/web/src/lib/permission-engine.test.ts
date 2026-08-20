@@ -43,6 +43,13 @@ describe("authorize", () => {
     expect(authorize({ context, role: "guest", grants: [], now, request: { householdId: context.householdId, permission: "calendar.read" } })).toEqual({ allowed: false, reason: "missing-permission" });
   });
 
+  it("reserves household calendar changes for adults", () => {
+    expect(authorize({ context, role: "adult", grants: [], now, request: { householdId: context.householdId, permission: "calendar.manage" } })).toEqual({ allowed: true, source: "baseline" });
+    for (const role of ["child", "guest"] as const) {
+      expect(authorize({ context, role, grants: [], now, request: { householdId: context.householdId, permission: "calendar.manage" } })).toEqual({ allowed: false, reason: "missing-permission" });
+    }
+  });
+
   it("allows only a matching, unexpired scoped grant", () => {
     const grant = { grantId: "grant-a", memberId: "member-a", householdId: "household-a", permission: "profile.read-self" as const, appId: "habits", resourceId: "habit-a", expiresAt: new Date("2026-08-18T12:01:00.000Z") };
     expect(authorize({ context, role: "guest", grants: [grant], now, request: { householdId: "household-a", permission: "profile.read-self", appId: "habits", resourceId: "habit-a" } })).toEqual({ allowed: true, source: "grant" });

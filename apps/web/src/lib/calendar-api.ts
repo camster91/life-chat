@@ -19,5 +19,6 @@ export type CalendarApiResponse = Readonly<{
   date: DateOnly;
   timeZone: IanaTimeZone;
   locale: string;
+  canManage: boolean;
   items: readonly CalendarApiItem[];
 }>;

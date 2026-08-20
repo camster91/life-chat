@@ -7,7 +7,7 @@ describe.skipIf(databaseUrl === undefined)("calendar repository integration", ()
   it("loads only household-visible and actor-owned records for eligible members", async () => {
     const { createPostgresAdapter } = await import("./postgres-adapter");
     const { PrismaClient } = await import("../../generated/prisma/client");
-    const { CalendarAccessError, loadCalendarAgenda } = await import("./calendar-repository");
+    const { CalendarAccessError, createAllDayCalendarItem, loadCalendarAgenda } = await import("./calendar-repository");
     const database = new PrismaClient({ adapter: createPostgresAdapter(databaseUrl!) });
     try {
       const suffix = randomUUID();
@@ -27,8 +27,13 @@ describe.skipIf(databaseUrl === undefined)("calendar repository integration", ()
         database.calendarItem.create({ data: { id: `calendar-other-item-${suffix}`, householdId: otherHousehold.id, title: "Other household", kind: "all_day", startDate: "2026-08-19", endDateExclusive: "2026-08-20" } }),
       ]);
       const actor = (subjectId: string, memberId: string) => ({ context: { authenticatedSubjectId: subjectId, memberId, householdId: household.id }, grants: [] });
-      expect((await loadCalendarAgenda(database, { actor: actor(childSubject.id, child.id), date: "2026-08-19", now })).map((item) => item.id)).toEqual([records[0].id, records[1].id]);
-      expect((await loadCalendarAgenda(database, { actor: actor(adultSubject.id, adult.id), date: "2026-08-19", now })).map((item) => item.id)).toEqual([records[0].id, records[2].id]);
+      const created = await createAllDayCalendarItem(database, { actor: actor(adultSubject.id, adult.id), title: "New household event", date: "2026-08-19", commandId: `calendar-create-${suffix}`, now });
+      expect((await createAllDayCalendarItem(database, { actor: actor(adultSubject.id, adult.id), title: "Ignored replay", date: "2026-08-20", commandId: `calendar-create-${suffix}`, now })).id).toBe(created.id);
+      await expect(createAllDayCalendarItem(database, { actor: actor(childSubject.id, child.id), title: "Child write", date: "2026-08-19", commandId: `calendar-child-${suffix}`, now })).rejects.toThrow(CalendarAccessError);
+      expect((await loadCalendarAgenda(database, { actor: actor(childSubject.id, child.id), date: "2026-08-19", now })).map((item) => item.id)).toEqual([created.id, records[0].id, records[1].id]);
+      expect((await loadCalendarAgenda(database, { actor: actor(adultSubject.id, adult.id), date: "2026-08-19", now })).map((item) => item.id)).toEqual([created.id, records[0].id, records[2].id]);
+      expect(await database.auditEvent.count({ where: { householdId: household.id, action: "calendar.create", targetId: created.id } })).toBe(1);
+      expect(await database.outboxEvent.count({ where: { householdId: household.id, eventType: "calendar.created.v1", aggregateId: created.id } })).toBe(1);
       await expect(loadCalendarAgenda(database, { actor: actor(guestSubject.id, guest.id), date: "2026-08-19", now })).rejects.toThrow(CalendarAccessError);
       await database.member.update({ where: { id: child.id }, data: { lifecycle: "suspended" } });
       await expect(loadCalendarAgenda(database, { actor: actor(childSubject.id, child.id), date: "2026-08-19", now })).rejects.toThrow(CalendarAccessError);
