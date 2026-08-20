@@ -27,7 +27,7 @@ export const miniAppRegistry: readonly MiniAppDefinition[] = [
   { id: "meals", version: 1, label: "Meals", dependsOn: [], declaredCapabilities: ["meals.read", "meals.manage"], settingsSchemaVersion: 1 },
   { id: "groceries", version: 1, label: "Groceries", dependsOn: ["shared-lists"], declaredCapabilities: ["groceries.read", "groceries.manage"], settingsSchemaVersion: 1 },
   { id: "shared-lists", version: 1, label: "Shared lists", dependsOn: [], declaredCapabilities: ["lists.read", "lists.complete", "lists.manage"], settingsSchemaVersion: 1 },
-  { id: "projects", version: 1, label: "Projects", dependsOn: ["shared-lists"], declaredCapabilities: ["projects.manage"], settingsSchemaVersion: 1 },
+  { id: "projects", version: 1, label: "Projects", dependsOn: ["shared-lists"], declaredCapabilities: ["projects.read", "projects.manage"], settingsSchemaVersion: 1 },
   { id: "messages", version: 1, label: "Messages", dependsOn: [], declaredCapabilities: ["messages.participate"], settingsSchemaVersion: 1 },
   { id: "budget", version: 1, label: "Budget", dependsOn: [], declaredCapabilities: ["budget.view"], settingsSchemaVersion: 1 },
 ];

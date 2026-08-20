@@ -36,6 +36,8 @@ export const permissions = [
   "meals.manage",
   "groceries.read",
   "groceries.manage",
+  "projects.read",
+  "projects.manage",
 ] as const;
 
 export type Permission = (typeof permissions)[number];
@@ -61,8 +63,8 @@ export type AuthorizationRequest = {
 export type AuthorizationDecision = { allowed: true; source: "baseline" | "grant" } | { allowed: false; reason: "household-mismatch" | "missing-permission" };
 
 const baselinePermissions: Record<BaselineRole, readonly Permission[]> = {
-  adult: ["household.read", "household.manage", "member.read", "member.invite", "member.manage", "mini-app.configure", "audit.read", "data.export", "privacy.manage", "profile.read-self", "profile.update-self", "notification.manage-self", "ai.propose", "ai.confirm", "ai.configure", "rewards.approve", "rewards.read", "rewards.request", "rewards.manage", "messages.participate", "budget.view", "lists.read", "lists.complete", "lists.manage", "chores.complete-assigned", "chores.manage", "calendar.read", "calendar.manage", "habits.read", "habits.record", "habits.manage", "meals.read", "meals.manage", "groceries.read", "groceries.manage"],
-  child: ["household.read", "profile.read-self", "profile.update-self", "notification.manage-self", "ai.propose", "messages.participate", "rewards.read", "rewards.request", "lists.read", "lists.complete", "chores.complete-assigned", "calendar.read", "habits.read", "habits.record", "meals.read", "groceries.read"],
+  adult: ["household.read", "household.manage", "member.read", "member.invite", "member.manage", "mini-app.configure", "audit.read", "data.export", "privacy.manage", "profile.read-self", "profile.update-self", "notification.manage-self", "ai.propose", "ai.confirm", "ai.configure", "rewards.approve", "rewards.read", "rewards.request", "rewards.manage", "messages.participate", "budget.view", "lists.read", "lists.complete", "lists.manage", "chores.complete-assigned", "chores.manage", "calendar.read", "calendar.manage", "habits.read", "habits.record", "habits.manage", "meals.read", "meals.manage", "groceries.read", "groceries.manage", "projects.read", "projects.manage"],
+  child: ["household.read", "profile.read-self", "profile.update-self", "notification.manage-self", "ai.propose", "messages.participate", "rewards.read", "rewards.request", "lists.read", "lists.complete", "chores.complete-assigned", "calendar.read", "habits.read", "habits.record", "meals.read", "groceries.read", "projects.read"],
   guest: [],
 };
 
