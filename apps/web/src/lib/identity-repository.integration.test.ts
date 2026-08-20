@@ -217,8 +217,8 @@ describe.skipIf(databaseUrl === undefined)("identity repository integration", ()
       const childContext = { authenticatedSubjectId: childSubject.id, memberId: child.id, householdId: household.id };
       await setHouseholdMiniAppEnabled(database, { actor: adultActor, appId: "chores", enabled: true, expectedVersion: 0, commandId: `chores-enable-${suffix}`, now });
       const assignment = await database.choreAssignment.create({ data: { householdId: household.id, assigneeMemberId: child.id, title: "Feed pet", dueDate: "2026-08-18" } });
-      expect(await searchAuthorizedRecords(database, { context: childContext, query: "feed" })).toMatchObject([{ type: "Chore", results: [{ id: assignment.id }] }]);
-      expect(await searchAuthorizedRecords(database, { context: adultActor.context, query: "feed" })).toEqual([]);
+      expect(await searchAuthorizedRecords(database, { context: childContext, grants: [], query: "feed", now })).toMatchObject([{ type: "Chore", results: [{ id: assignment.id }] }]);
+      expect(await searchAuthorizedRecords(database, { context: adultActor.context, grants: [], query: "feed", now })).toEqual([]);
       expect(household).toMatchObject({ timeZone: "America/Toronto", locale: "en-CA" });
       expect(await loadTodayDashboard(database, { context: childContext, date: "2026-08-18", timeZone: household.timeZone })).toMatchObject({ items: [{ id: assignment.id }] });
       expect((await loadTodayDashboard(database, { context: adultActor.context, date: "2026-08-18", timeZone: household.timeZone })).items).toEqual([]);

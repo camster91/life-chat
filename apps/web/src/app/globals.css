@@ -122,6 +122,12 @@ p { max-width: 65ch; color: var(--muted); font-size: 1.05rem; line-height: 1.6; 
 .notification-preferences { display: grid; gap: 1rem; }
 .notification-preferences h2, .notification-preferences p { margin: 0; }
 .quiet-hours { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.search-groups { display: grid; gap: 1rem; margin-top: 1.5rem; }
+.search-groups h2 { margin-top: 0; }
+.search-results { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.search-results a { display: grid; gap: .2rem; padding: .75rem; border: 1px solid var(--line); border-radius: .5rem; text-decoration: none; }
+.search-results a:hover { background: var(--accent-soft); }
+.search-results span { color: var(--muted); font-size: .875rem; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 .skip-link { position: fixed; z-index: 3; top: .5rem; left: .5rem; padding: .75rem 1rem; border-radius: .5rem; background: var(--ink); color: #fff; transform: translateY(-150%); }
 .skip-link:focus { transform: translateY(0); }

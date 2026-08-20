@@ -2,7 +2,7 @@
 
 ## Current state
 
-Shared contracts, migration safeguards, inventories, and presentation/read models exist for every P1 shell surface and mini-app. The repository now has a runnable local Next.js shell, CLI-only first-owner bootstrap, invite-only Better Auth account entry, session handling, server-derived household/member context, persisted identity and mini-app configuration, notification preferences, an authenticated Today read path, and an assignee-scoped Chore completion path. Shared Lists has household-scoped read/create/add-item APIs, a normal responsive UI, and confirmed version-aware completion with audit/outbox evidence. Broader P1 stores and routes, delivery workers, human usability/assistive-technology evidence, and production services remain absent. Therefore issues #15–#32 remain open.
+Shared contracts, migration safeguards, inventories, and presentation/read models exist for every P1 shell surface and mini-app. The repository now has a runnable local Next.js shell, CLI-only first-owner bootstrap, invite-only Better Auth account entry, session handling, server-derived household/member context, persisted identity and mini-app configuration, notification preferences, an authenticated Today read path, and an assignee-scoped Chore completion path. Shared Lists has household-scoped read/create/add-item APIs, a normal responsive UI, and confirmed version-aware completion with audit/outbox evidence. Global Search now has an authenticated query-time route for Calendar, Shared Lists, and assignee-visible Chores. Broader P1 stores and routes, delivery workers, human usability/assistive-technology evidence, and production services remain absent. Therefore issues #15–#32 remain open.
 
 ## External gates
 
@@ -35,7 +35,7 @@ Proof: end-to-end daily, child-completion, adult-review, and guest journeys; mob
 
 ### 3. Shell services
 
-Implement Calendar persistence/timezone behavior, notification preferences/state commands/outbox adapters, Search indexing/retrieval, Family membership/invitation/role safeguards, and Settings persistence with audit/confirmation.
+Implement Calendar persistence/timezone behavior, notification preferences/state commands/outbox adapters, the remaining Search indexing/retrieval policies, Family membership/invitation/role safeguards, and Settings persistence with audit/confirmation.
 
 Proof: role-boundary, timezone/DST, notification/search leakage, recovery, and export tests appropriate to each command.
 

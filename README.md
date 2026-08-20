@@ -21,11 +21,15 @@ Today, Chat, Apps, Calendar, Family, Search, Notifications, and Settings form th
 
 ## Status
 
-This repository contains the product plan, shared-contract foundations, read-only
-domain/presentation models, migration safeguards, and a dependency-ordered
-backlog. It is **not yet a runnable household product**: authentication,
-database persistence, server commands, canonical record storage, complete route
-UI, and delivery workers are still pending.
+This repository contains the product plan, shared-contract foundations,
+migration safeguards, and a runnable local authenticated shell. It has
+invite-only account entry, server-derived household context, PostgreSQL-backed
+identity, app configuration, Today, Calendar, Family, Notifications, Shared
+Lists, Chore completion, and query-time Search slices. It is **not yet a
+complete or production-ready household product**: Chat, most mini-apps,
+delivery workers, recovery operations, broader record commands, human UX and
+assistive-technology validation, hosted CI proof, and production services are
+still pending.
 
 No data migration, production deployment, legacy-repository modification, or
 legacy retirement is complete or authorized. See the

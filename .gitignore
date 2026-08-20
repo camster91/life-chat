@@ -2,6 +2,7 @@ node_modules/
 .next/
 apps/web/generated/
 .life-chat-postgres-rehearsal/
+.life-chat-search-integration/
 coverage/
 playwright-report/
 test-results/
