@@ -89,6 +89,8 @@ model Household {
   sharedListItems SharedListItem[]
   choreAssignments ChoreAssignment[]
   calendarItems CalendarItem[]
+  habitRoutines HabitRoutine[]
+  habitCompletions HabitCompletion[]
   memberLifecycleCommands MemberLifecycleCommand[]
   notifications NotificationEnvelope[]
   notificationPreferences NotificationPreference[]
@@ -136,6 +138,41 @@ model CalendarItem {
   @@index([householdId, startInstant, endInstant])
   @@index([householdId, ownerMemberId, visibility])
   @@map("calendar_items")
+}
+
+model HabitRoutine {
+  id                String              @id @default(cuid())
+  householdId       String
+  ownerMemberId     String
+  label             String
+  creationCommandId String?             @unique
+  version           Int                 @default(1)
+  archivedAt        DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  household         Household           @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  ownerMember       Member              @relation(fields: [householdId, ownerMemberId], references: [householdId, id], onDelete: Restrict)
+  completions       HabitCompletion[]
+
+  @@unique([householdId, id])
+  @@index([householdId, ownerMemberId, archivedAt])
+  @@map("habit_routines")
+}
+
+model HabitCompletion {
+  id                  String       @id @default(cuid())
+  householdId         String
+  routineId           String
+  completionDate      String
+  completionCommandId String?      @unique
+  completedByMemberId String
+  createdAt           DateTime     @default(now())
+  household           Household    @relation(fields: [householdId], references: [id], onDelete: Restrict)
+  routine             HabitRoutine @relation(fields: [householdId, routineId], references: [householdId, id], onDelete: Restrict)
+
+  @@unique([routineId, completionDate])
+  @@index([householdId, completionDate])
+  @@map("habit_completions")
 }
 
 enum ChoreAssignmentState {
@@ -257,6 +294,7 @@ model Member {
   notifications          NotificationEnvelope[]
   notificationPreference NotificationPreference?
   calendarItemsOwned     CalendarItem[]
+  habitRoutinesOwned     HabitRoutine[]
   lifecycleCommandsActed MemberLifecycleCommand[] @relation("MemberLifecycleCommandActor")
   lifecycleCommandsTargeted MemberLifecycleCommand[] @relation("MemberLifecycleCommandTarget")
 
