@@ -18,7 +18,7 @@
     "@better-auth/prisma-adapter": "1.7.1",
     "@js-temporal/polyfill": "0.5.1",
     "@prisma/adapter-pg": "7.9.1",
-    "@prisma/client": "7.9.1",
+    "@prisma/client": "7.10.0",
     "better-auth": "1.7.1",
     "next": "16.3.1",
     "pg": "8.23.0",
