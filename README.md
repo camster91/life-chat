@@ -1,3 +1,5 @@
+This repo is archived and no longer maintained.
+
 # Life Chat
 
 A calm, chat-first household operating system for coordinating people, time, tasks, meals, money and shared information. Self-hostable, with strong household and member isolation.
